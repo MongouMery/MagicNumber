@@ -7,6 +7,9 @@
 /* Layout: one centered column like a phone app — header, one profile card, two big judge buttons; result is a spec sheet */
 :root{
   --bg:#eef0f4; --surface:#ffffff; --ink:#1d2230; --muted:#677087; --line:#d6dae3;
+  --hand-filter:brightness(0) opacity(.78);
+  --dot-off:#d6dae3; --dot-on:#4a5162;
+  --stamp-like:#d63a50; --stamp-nope:#2f63b0;   /* 白文字との差を十分にとった色。ライト・ダーク共通 */
   --like:#e0475b; --like-soft:#fbe3e6; --nope:#3f6fb5; --nope-soft:#e1eaf7; --warn:#c98a12;
   --f-display:"Dela Gothic One","Hiragino Kaku Gothic StdN",sans-serif;
   --f-body:"Zen Kaku Gothic New","Hiragino Sans","Yu Gothic",sans-serif;
@@ -15,11 +18,17 @@
 }
 @media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
   --bg:#13161e; --surface:#1d212c; --ink:#e9ecf3; --muted:#9aa2b6; --line:#2e3442;
+  --hand-filter:none;
+  --dot-off:#2e3442; --dot-on:#aab1c2;
   --like:#f06878; --like-soft:#3a1f26; --nope:#6f9be0; --nope-soft:#1d2a40; --warn:#e2a93a; color-scheme:dark}}
 :root[data-theme="dark"]{
   --bg:#13161e; --surface:#1d212c; --ink:#e9ecf3; --muted:#9aa2b6; --line:#2e3442;
+  --hand-filter:none;
+  --dot-off:#2e3442; --dot-on:#aab1c2;
   --like:#f06878; --like-soft:#3a1f26; --nope:#6f9be0; --nope-soft:#1d2a40; --warn:#e2a93a; color-scheme:dark}
 html,body{height:100%}
+/* 縦スクロールバーが出ても中身が左右にずれないよう、スクロールバーの幅を常に確保する */
+html{scrollbar-gutter:stable both-edges}
 body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:15px;line-height:1.7}
 .wrap{max-width:440px;margin:0 auto;padding:20px 16px 40px;display:flex;flex-direction:column;gap:18px}
 header{display:flex;justify-content:flex-end;align-items:baseline;gap:12px}
@@ -37,35 +46,62 @@ p{margin:0}
 .rules{margin:0;padding-left:1.2em;display:flex;flex-direction:column;gap:4px}
 .btn{display:inline-block;text-decoration:none;font:700 16px var(--f-body);border:0;border-radius:999px;padding:14px 22px;cursor:pointer;background:var(--ink);color:var(--bg)}
 .btn:focus-visible,.judge button:focus-visible{outline:3px solid var(--warn);outline-offset:3px}
+.dots{display:flex;justify-content:center;gap:clamp(2px,1vw,4px);margin-top:-6px;margin-bottom:8px}
+.dots i{flex:0 0 auto;width:clamp(5px,1.6vw,7px);aspect-ratio:1;border-radius:50%;background:var(--dot-off)}
+.dots i.on{background:var(--dot-on)}
 .progress{text-align:center;font-family:var(--f-mono);font-size:13px;color:var(--muted);font-variant-numeric:tabular-nums}
-.card{position:relative;background:var(--surface);border:1px solid var(--line);border-radius:22px;padding:26px 22px 22px;display:flex;flex-direction:column;gap:18px;touch-action:pan-y;user-select:none;transition:transform .18s ease,opacity .18s ease}
+.card{position:relative;background:var(--surface);border:1px solid var(--line);border-radius:22px;padding:30px 18px 30px;display:flex;flex-direction:column;gap:28px;touch-action:none;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;transition:transform .18s ease,opacity .18s ease;will-change:transform}
+.card.dragging{transition:none}
+/* ゲーム中は画面全体でスワイプを受け付け、ブラウザのスクロールや長押しメニューに操作を横取りさせない */
+html.playing,html.playing body{overflow-x:clip;touch-action:none;overscroll-behavior:none;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}
 .card.go-like{transform:translateX(40%) rotate(8deg);opacity:0}
 .card.go-nope{transform:translateX(-40%) rotate(-8deg);opacity:0}
 .card.go-skip{transform:translateY(16px);opacity:0}
 .timer{height:6px;border-radius:3px;background:var(--line);overflow:hidden}
 .timer i{display:block;height:100%;width:100%;background:var(--ink);transform-origin:left;transform:scaleX(1)}
-.magic{font-family:var(--f-num);font-weight:900;font-size:min(52px,14cqi);line-height:1.15;letter-spacing:.01em;font-variant-numeric:tabular-nums;text-align:center;padding-block:18px 10px;white-space:nowrap}
+.magic{font-family:var(--f-num);font-weight:900;font-size:min(62px,15.5cqi);line-height:1.15;letter-spacing:.01em;font-variant-numeric:tabular-nums;text-align:center;padding-block:18px 10px;white-space:nowrap}
 [hidden]{display:none!important}
 .card,.result-main{container-type:inline-size}
+.card .magic{padding-block:0}
 .reel{display:inline-block;text-align:center}
+.wv{display:inline-block}
+@keyframes wave{0%{transform:translateY(0)}35%{transform:translateY(-.3em)}68%{transform:translateY(.05em)}100%{transform:translateY(0)}}
 .reel.spin{filter:blur(1.2px);opacity:.75}
 .reel.stop{animation:reelstop .22s ease-out}
 @keyframes reelstop{0%{transform:translateY(-.18em)}60%{transform:translateY(.06em)}100%{transform:none}}
 @media (prefers-reduced-motion: reduce){.reel.stop{animation:none}}
-.magic .sl{display:inline-block;position:relative;width:.42em;height:.82em;margin:0 .08em;vertical-align:-.04em;color:var(--muted)}
+.magic .sl{display:inline-block;position:relative;width:.34em;height:.82em;margin:0 .05em;vertical-align:-.04em;color:var(--muted)}
 .magic .sl svg{position:absolute;inset:0;width:100%;height:100%;overflow:visible}
 .magic .sl i{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
 .result-main .magic{width:100%}
-.stamp{position:absolute;top:22px;right:20px;font-family:var(--f-display);font-size:20px;padding:2px 12px;border-radius:8px;border:3px solid currentColor;opacity:0;transform:rotate(8deg)}
-.stamp.l{color:var(--like)} .stamp.n{color:var(--nope);left:20px;right:auto;transform:rotate(-8deg)}
+/* スワイプ中の「あり」「なし」表示：白文字を色地に載せて読みやすく。数字に重ならないよう枠の上辺にまたがせる */
+.stamp{position:absolute;top:-14px;left:18px;z-index:2;font-family:var(--f-display);font-size:26px;line-height:1.2;padding:4px 18px;border-radius:10px;color:#fff;opacity:0;transform:rotate(8deg);box-shadow:0 2px 8px rgba(0,0,0,.18)}
+.stamp.l{background:var(--stamp-like);transform:rotate(-8deg)} .stamp.n{background:var(--stamp-nope);right:18px;left:auto;transform:rotate(8deg)}
+/* 右に払うとカードは右へ動くので「あり」は左上、左に払うと「なし」は右上に出して画面外に隠れないようにする */
 .judge{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 .judge button{font:700 18px var(--f-body);border-radius:16px;padding:16px 0;cursor:pointer;border:2px solid}
 .judge .nope{background:var(--nope-soft);color:var(--nope);border-color:var(--nope)}
 .judge .like{background:var(--like-soft);color:var(--like);border-color:var(--like)}
 .judge kbd{font-family:var(--f-mono);font-size:12px;opacity:.7;margin-left:6px}
 .count{font-family:var(--f-display);font-size:96px;text-align:center;line-height:1.2}
+.guide{display:grid;grid-template-columns:1fr 1fr;gap:10px;width:100%;max-width:320px}
+.guide .g{display:flex;align-items:center;justify-content:center;gap:10px;padding:6px 4px;font-weight:700;font-size:18px}
+.guide .g.n{color:var(--nope)}
+.guide .g.l{color:var(--like)}
+.guide .arr{font-family:var(--f-num);font-size:26px;line-height:1}
+.guide-note{font-size:12px;color:var(--muted)}
+.same-h{box-sizing:border-box;min-height:240px;justify-content:center}   /* TOP・カウントダウン・ステージ終了の枠を同じ縦幅にそろえる（TOPは「あそびかた」を開くとその分伸びる） */
+.intro-panel{box-sizing:border-box;min-height:240px}
+/* タイトルとボタンは常に同じ高さの領域の中央に置く。「あそびかた」を開いても位置が動かないよう、説明はその下に足す */
+.intro-head{min-height:194px;display:flex;flex-direction:column;justify-content:center;gap:14px}
+.how-sec{display:flex;flex-direction:column;gap:2px}
+/* スワイプ操作のアニメーション：素材は白い手なので、ライトテーマでは濃い色に変えて見えるようにする */
+.hand-anim{position:relative;width:min(260px,100%);height:110px;overflow:hidden;filter:var(--hand-filter)}
+.hand-anim>div[hidden]{display:none}
+.hand-anim>div{position:absolute;left:50%;top:50%;width:290px;height:242px;transform:translate(-50%,-50%)}
 .result-main{display:flex;flex-direction:column;gap:12px;align-items:flex-start}
 .axis{display:grid;grid-template-columns:1fr;gap:8px;padding-top:28px}
+.axis+.axis{margin-top:20px}   /* 身長・年齢・体型の各まとまりの間を広げる */
 .axis-head{display:flex;justify-content:space-between;align-items:baseline;gap:8px;flex-wrap:wrap}
 .chip{font-size:12px;padding:2px 10px;border-radius:999px;background:var(--bg);border:1px solid var(--line)}
 .chip.edge{border-color:var(--like);color:var(--like)}
@@ -73,11 +109,22 @@ p{margin:0}
 .bar i{display:block;height:100%;border-radius:3px;background:var(--ink)}
 svg.curve{width:100%;height:auto;display:block}
 details{font-size:13px}
+.result-main .detail{width:100%;border-top:1px solid var(--line);padding-top:14px;margin-top:6px}
 summary{cursor:pointer;color:var(--muted)}
 .logwrap{overflow-x:auto;margin-top:8px}
 table{border-collapse:collapse;font-family:var(--f-mono);font-size:12px;font-variant-numeric:tabular-nums;width:100%}
 th,td{padding:4px 10px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap}
 th{color:var(--muted);font-weight:500}
+table.top5 th,table.top5 td{text-align:center}
+table.top5 tr.first td{color:var(--like);font-weight:700}   /* 1位（同順位の1位も含む）は太字の赤 */
+.dash-u{text-decoration:underline dashed;text-decoration-thickness:1px;text-underline-offset:6px}
+/* ステージ終了画面の3段階プログレスバー */
+.stagebar{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;width:min(240px,100%)}
+.stagebar i{height:8px;border-radius:4px;background:var(--dot-off);overflow:hidden;position:relative}
+.stagebar i.on::after{content:"";position:absolute;inset:0;background:var(--dot-on);border-radius:4px}
+.stagebar i.new::after{animation:stagefill .6s ease-out both}
+@keyframes stagefill{from{transform:scaleX(0);transform-origin:left}to{transform:scaleX(1);transform-origin:left}}
+@media (prefers-reduced-motion: reduce){.stagebar i.new::after{animation:none}}
 td.l{color:var(--like)} td.n{color:var(--nope)} td.s{color:var(--muted)}
 .row{display:flex;gap:10px;flex-wrap:wrap}
 .btn.ghost{background:transparent;color:var(--ink);border:1px solid var(--line)}
@@ -88,13 +135,14 @@ td.l{color:var(--like)} td.n{color:var(--nope)} td.s{color:var(--muted)}
   <main id="view"></main>
 </div>
 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/lottie-web/5.12.2/lottie.min.js"></script>
 <script>
 (() => {
-const R = { h:[140,200], a:[18,70], b:[16,45] };   // 身長cm, 年齢, 隠しBMI（学習では対数で扱う）
+const R = { h:[140,200], a:[18,75], b:[16,45] };   // 身長cm, 年齢, 隠しBMI（学習では対数で扱う）
 /* 隠しパラメータBMI：画面には出さない。身長と体重の組み合わせを現実的にするために使う */
 function gauss(){let u=0,v=0;while(!u)u=Math.random();while(!v)v=Math.random();return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v);}
 // 令和5年国民健康・栄養調査 第14表の年代別平均身長（男性）
-const heightMean=a=>a<30?170.3:a<40?171.5:a<50?171.2:a<60?170.5:a<65?169.1:a<70?168.1:166.6;
+const heightMean=a=>a<30?170.3:a<40?171.5:a<50?171.2:a<60?170.5:a<65?169.1:a<70?168.1:a<75?166.6:164.5;
 // 現実の分布：標準的な人が9割、肥満寄りが1割の混合
 const drawBMI=()=>Math.random()<0.9?22.6*Math.exp(0.13*gauss()):29*Math.exp(0.15*gauss());
 // 体型の4区分（候補の出し方だけに使う。判定・学習には区分を使わない）
@@ -115,6 +163,13 @@ const NF=10;
 // 各項目の1次・2次＋組み合わせ（年齢×体型、身長×体型、身長×年齢）
 const feats=p=>{const zh=z(p.h,R.h),za=z(p.a,R.a),zb=zB(p._bmi);return [1,zh,zh*zh,za,za*za,zb,zb*zb,za*zb,zh*zb,zh*za];};
 
+/* ---------- 同じ数字を二度出さないための管理 ---------- */
+const keyOf=p=>p.h+'/'+p.w+'/'+p.a;
+// これまでに表示した数字（全ステージ）。新しい候補はここにある数字と、同じステージ内で既に選んだ数字を弾く
+const usedKeys=()=>new Set(state.log.map(r=>keyOf(r.p)));
+// 弾かれたら作り直す（最大200回）
+function fresh(make,used){for(let i=0;i<200;i++){const p=make();if(!used.has(keyOf(p))){used.add(keyOf(p));return p;}}const p=make();used.add(keyOf(p));return p;}
+
 /* ---------- ① 候補 ---------- */
 function scene1Candidates(){
   const n=N/2;
@@ -122,10 +177,11 @@ function scene1Candidates(){
   // 25人：身長・年齢は全範囲から均等に、体型は4区分から均等に
   const H=strat(R.h),A=strat(R.a);
   const K=shuffle([...Array(n)].map((_,i)=>i%4));
-  const wide=H.map((h,i)=>person(h,A[i],drawBody(K[i])));
+  const used=usedKeys();
+  const wide=H.map((h,i)=>fresh(()=>person(h,A[i],drawBody(K[i])),used));
   // 25人：現実の分布（平均的な人）
-  const real=[...Array(n)].map(()=>{let a;do{a=Math.round(49+18*gauss());}while(a<R.a[0]||a>R.a[1]);
-    return person(clamp(heightMean(a)+5.8*gauss(),R.h[0],R.h[1]),a,drawBMI());});
+  const real=[...Array(n)].map(()=>fresh(()=>{let a;do{a=Math.round(49+18*gauss());}while(a<R.a[0]||a>R.a[1]);
+    return person(clamp(heightMean(a)+5.8*gauss(),R.h[0],R.h[1]),a,drawBMI());},used));
   return shuffle([...wide,...real]);
 }
 
@@ -187,7 +243,7 @@ function bestCombo(beta,rows){
 
 /* ---------- 項目ごとの形と重み（結果の組み合わせを基準に、他の項目を固定して見る） ---------- */
 const AX=[{k:'h',name:'身長',unit:'cm',r:R.h,low:'低いほど好き',high:'高いほど好き'},
-          {k:'a',name:'年齢',unit:'歳',r:R.a,low:'若いほど好き',high:'年上ほど好き'},
+          {k:'a',name:'年齢',unit:'歳',r:R.a,low:'低いほど好き',high:'高いほど好き'},
           {k:'b',name:'体型',unit:'',r:R.b,low:'細いほど好き',high:'太いほど好き',ends:['BMI16','BMI45']}];
 function axisShape(beta,anchor){
   const out=AX.map(ax=>{
@@ -224,9 +280,13 @@ function scene2Candidates(beta){
     const dis=state.log.filter(r=>r.like===false).map(r=>pos(r.p));
     pool.forEach(p=>{const x=pos(p);const d=Math.min(...dis.map(y=>Math.hypot(x[0]-y[0],x[1]-y[1],x[2]-y[2])));p._w=Math.pow(d,4)+1e-6;});
   }
-  const nE=Math.round(N*0.16),nW=Math.round(N*0.08);   // 探索枠：端寄り約16%＋全範囲約8%（32人なら5人＋3人）
+  const lastStage=state.scene===STAGES;
+  const nE=lastStage?3:Math.round(N*0.16),nW=lastStage?1:Math.round(N*0.08);   // 探索枠：通常は端寄り5＋全範囲3、最終ステージは端寄り3＋全範囲1
+  const used=usedKeys();
   const pick=[];const nExploit=N-nE-nW;
-  for(let k=0;k<nExploit;k++){const tot=pool.reduce((s,p)=>s+p._w,0);let r=Math.random()*tot;let idx=0;for(;idx<pool.length;idx++){r-=pool[idx]._w;if(r<=0)break;}pick.push(pool.splice(Math.min(idx,pool.length-1),1)[0]);}
+  // 抽選で選ばれても、既に出た数字なら弾いて引き直す
+  while(pick.length<nExploit&&pool.length){const tot=pool.reduce((s,p)=>s+p._w,0);let r=Math.random()*tot;let idx=0;for(;idx<pool.length;idx++){r-=pool[idx]._w;if(r<=0)break;}
+    const p=pool.splice(Math.min(idx,pool.length-1),1)[0];if(used.has(keyOf(p)))continue;used.add(keyOf(p));pick.push(p);}
   // 探索枠：範囲の端寄り（好みの向きが分かっていればその側、未確定なら左右どちらか）
   const near=(k)=>{const s=shape.find(x=>x.k===k);
     const lg=k==='b';const lo=lg?Math.log(s.r[0]):s.r[0],hi=lg?Math.log(s.r[1]):s.r[1],span=hi-lo;
@@ -235,8 +295,8 @@ function scene2Candidates(beta){
     if(s.type==='edge')return side(s.label===s.low);
     if(s.type==='weak')return side(Math.random()<0.5);
     const pk=lg?Math.log(s.peak):s.peak;return out(clamp(pk+rnd(-0.15,0.15)*span,lo,hi));};
-  for(let k=0;k<nE;k++){const p=person(near('h'),near('a'),near('b'));p._explore='edge';pick.push(p);}
-  for(let k=0;k<nW;k++){const p=person(rnd(...R.h),rnd(...R.a),drawBody(k%4));p._explore='wide';pick.push(p);}
+  for(let k=0;k<nE;k++){const p=fresh(()=>person(near('h'),near('a'),near('b')),used);p._explore='edge';pick.push(p);}
+  for(let k=0;k<nW;k++){const p=fresh(()=>person(rnd(...R.h),rnd(...R.a),drawBody(k%4)),used);p._explore='wide';pick.push(p);}
   return shuffle(pick);
 }
 
@@ -307,6 +367,22 @@ function sfxWin(){
     o.connect(g).connect(ctx.destination);o.start(st);o.stop(st+dur+0.02);});
 }
 
+// ステージ進捗が埋まったときの「ぴこん」：高めの2音を短く上げる
+function sfxPop(){
+  const ctx=audio();if(!ctx)return;const t=ctx.currentTime;
+  [[1318.5,0,0.06],[1975.5,0.055,0.16]].forEach(([f,st,dur])=>{const o=ctx.createOscillator(),g=ctx.createGain();o.type='sine';o.frequency.value=f;
+    g.gain.setValueAtTime(0.0001,t+st);g.gain.exponentialRampToValueAtTime(0.22,t+st+0.006);g.gain.exponentialRampToValueAtTime(0.0001,t+st+dur);
+    o.connect(g).connect(ctx.destination);o.start(t+st);o.stop(t+st+dur+0.02);});
+}
+// 結果発表のウェーブ音：数字が左から跳ねるのに合わせて、小さな音を少しずつ高く鳴らす
+function sfxWaveBlip(k){
+  const ctx=audio();if(!ctx)return;const t=ctx.currentTime,dur=0.13;
+  const scale=[523.25,587.33,659.25,783.99,880,1046.5,1174.66,1318.5,1567.98,1760];
+  const o=ctx.createOscillator(),g=ctx.createGain();o.type='triangle';o.frequency.value=scale[Math.min(k,scale.length-1)];
+  g.gain.setValueAtTime(0.0001,t);g.gain.exponentialRampToValueAtTime(0.13,t+0.006);g.gain.exponentialRampToValueAtTime(0.0001,t+dur);
+  o.connect(g).connect(ctx.destination);o.start(t);o.stop(t+dur+0.02);
+}
+
 // 操作音「カチャ」：ごく弱い2連のクリック
 function sfxClick(){
   const ctx=audio();if(!ctx)return;const t=ctx.currentTime;
@@ -318,55 +394,97 @@ function sfxClick(){
 // 「あり」「なし」以外の、押せるもの全部（ボタン・リンク・詳細の開閉）で鳴らす
 document.addEventListener('click',e=>{const el=e.target.closest('button,a,summary');if(!el||el.id==='bl'||el.id==='bn')return;sfxClick();});
 
+/* ---------- 操作案内 ---------- */
+// スワイプのアニメーション素材（LottieFilesの.lottieから取り出したもの。画像は埋め込み済み）
+// 左へ払う＝「なし」（vfwEGChdkD.lottie）
+const HAND_LEFT={"v":"4.8.0","meta":{"g":"LottieFiles AE ","a":"","k":"","d":"","tc":""},"fr":29.9700012207031,"ip":0,"op":42.0000017106951,"w":1080,"h":900,"nm":"Comp 1","ddd":0,"assets":[{"id":"image_0","w":45,"h":502,"u":"","p":"data:image/png;base64,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","e":1},{"id":"comp_0","layers":[{"ddd":0,"ind":1,"ty":4,"nm":"hand","sr":1,"ks":{"o":{"a":1,"k":[{"i":{"x":[0.386],"y":[1]},"o":{"x":[0.167],"y":[0]},"t":0,"s":[100]},{"i":{"x":[0],"y":[1]},"o":{"x":[0.333],"y":[0]},"t":30,"s":[100]},{"t":41.0000016699642,"s":[0]}],"ix":11},"r":{"a":0,"k":0,"ix":10},"p":{"a":1,"k":[{"i":{"x":0,"y":1},"o":{"x":0.54,"y":0},"t":0,"s":[858.89,912.463,0],"to":[-73.167,0,0],"ti":[73.167,0,0]},{"t":30.0000012219251,"s":[419.89,912.463,0]}],"ix":2},"a":{"a":0,"k":[110.83,82.597,0],"ix":1},"s":{"a":0,"k":[100,100,100],"ix":6}},"ao":0,"shapes":[{"ty":"gr","it":[{"ind":0,"ty":"sh","ix":1,"ks":{"a":0,"k":{"i":[[6.728,-6.728],[-3.727,-6.581],[0,0],[6.727,-6.728],[-3.741,-6.584],[0,0],[6.727,-6.728],[-3.737,-6.581],[0,0],[6.729,-6.729],[-6.728,-6.728],[0,0],[0,0],[3.726,-3.726],[-0.007,-6.397],[-2.191,-2.194],[-3.103,0],[0,0],[-8.596,8.596],[0,0],[22.143,22.142],[0,0]],"o":[[-5.603,5.603],[0,0],[-6.727,-6.728],[-5.607,5.606],[0,0],[-6.725,-6.725],[-5.607,5.606],[0,0],[-6.729,-6.729],[-6.725,6.725],[0,0],[0,0],[-5.174,0.741],[-4.587,4.588],[-0.005,3.097],[2.192,2.197],[0,0],[12.149,0],[0,0],[22.143,-22.143],[0,0],[-6.728,-6.728]],"v":[[22.029,-74.778],[19.216,-54.065],[14.478,-58.803],[-9.925,-58.803],[-12.721,-38.075],[-17.475,-42.829],[-41.873,-42.824],[-44.675,-22.102],[-81.376,-58.803],[-105.781,-58.803],[-105.776,-34.404],[-30.325,41.046],[-65.189,46.025],[-78.793,52.853],[-85.897,69.895],[-82.507,78.099],[-74.295,81.506],[39.486,81.506],[71.655,68.177],[90.363,49.469],[90.363,-30.847],[46.432,-74.778]],"c":true},"ix":2},"nm":"Path 1","mn":"ADBE Vector Shape - Group","hd":false},{"ty":"fl","c":{"a":0,"k":[1,0.998526958391,0.999226349475,1],"ix":4},"o":{"a":0,"k":100,"ix":5},"r":1,"bm":0,"nm":"Fill 1","mn":"ADBE Vector Graphic - Fill","hd":false},{"ty":"tr","p":{"a":0,"k":[112.756,81.756],"ix":2},"a":{"a":0,"k":[0,0],"ix":1},"s":{"a":0,"k":[100,100],"ix":3},"r":{"a":0,"k":0,"ix":6},"o":{"a":0,"k":100,"ix":7},"sk":{"a":0,"k":0,"ix":4},"sa":{"a":0,"k":0,"ix":5},"nm":"Transform"}],"nm":"Group 1","np":2,"cix":2,"bm":0,"ix":1,"mn":"ADBE Vector Group","hd":false}],"ip":0,"op":42.0000017106951,"st":0,"bm":0},{"ddd":0,"ind":2,"ty":2,"nm":"path","refId":"image_0","sr":1,"ks":{"o":{"a":0,"k":100,"ix":11},"r":{"a":0,"k":270,"ix":10},"p":{"a":0,"k":[540,862.894,0],"ix":2},"a":{"a":0,"k":[22.233,250.718,0],"ix":1},"s":{"a":0,"k":[100,100,100],"ix":6}},"ao":0,"ip":0,"op":42.0000017106951,"st":0,"bm":0}]}],"layers":[{"ddd":0,"ind":1,"ty":0,"nm":"hand","refId":"comp_0","sr":1,"ks":{"o":{"a":0,"k":100,"ix":11},"r":{"a":0,"k":0,"ix":10},"p":{"a":0,"k":[540,506,0],"ix":2},"a":{"a":0,"k":[540,960,0],"ix":1},"s":{"a":0,"k":[100,100,100],"ix":6}},"ao":0,"w":1080,"h":1920,"ip":0,"op":42.0000017106951,"st":0,"bm":0}],"markers":[]};
+// 右へ払う＝「あり」（DAuTIBTrhE.lottie）
+const HAND_RIGHT={"v":"4.8.0","meta":{"g":"LottieFiles AE ","a":"","k":"","d":"","tc":""},"fr":29.9700012207031,"ip":0,"op":42.0000017106951,"w":1080,"h":900,"nm":"Comp 1","ddd":0,"assets":[{"id":"image_0","w":45,"h":502,"u":"","p":"data:image/png;base64,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","e":1},{"id":"comp_0","layers":[{"ddd":0,"ind":1,"ty":4,"nm":"hand","sr":1,"ks":{"o":{"a":1,"k":[{"i":{"x":[0.386],"y":[1]},"o":{"x":[0.167],"y":[0]},"t":0,"s":[100]},{"i":{"x":[0],"y":[1]},"o":{"x":[0.333],"y":[0]},"t":30,"s":[100]},{"t":41.0000016699642,"s":[0]}],"ix":11},"r":{"a":0,"k":0,"ix":10},"p":{"a":1,"k":[{"i":{"x":0,"y":1},"o":{"x":0.468,"y":0},"t":0,"s":[419.89,912.463,0],"to":[73.167,0,0],"ti":[-73.167,0,0]},{"t":30.0000012219251,"s":[858.89,912.463,0]}],"ix":2},"a":{"a":0,"k":[110.83,82.597,0],"ix":1},"s":{"a":0,"k":[100,100,100],"ix":6}},"ao":0,"shapes":[{"ty":"gr","it":[{"ind":0,"ty":"sh","ix":1,"ks":{"a":0,"k":{"i":[[6.728,-6.728],[-3.727,-6.581],[0,0],[6.727,-6.728],[-3.741,-6.584],[0,0],[6.727,-6.728],[-3.737,-6.581],[0,0],[6.729,-6.729],[-6.728,-6.728],[0,0],[0,0],[3.726,-3.726],[-0.007,-6.397],[-2.191,-2.194],[-3.103,0],[0,0],[-8.596,8.596],[0,0],[22.143,22.142],[0,0]],"o":[[-5.603,5.603],[0,0],[-6.727,-6.728],[-5.607,5.606],[0,0],[-6.725,-6.725],[-5.607,5.606],[0,0],[-6.729,-6.729],[-6.725,6.725],[0,0],[0,0],[-5.174,0.741],[-4.587,4.588],[-0.005,3.097],[2.192,2.197],[0,0],[12.149,0],[0,0],[22.143,-22.143],[0,0],[-6.728,-6.728]],"v":[[22.029,-74.778],[19.216,-54.065],[14.478,-58.803],[-9.925,-58.803],[-12.721,-38.075],[-17.475,-42.829],[-41.873,-42.824],[-44.675,-22.102],[-81.376,-58.803],[-105.781,-58.803],[-105.776,-34.404],[-30.325,41.046],[-65.189,46.025],[-78.793,52.853],[-85.897,69.895],[-82.507,78.099],[-74.295,81.506],[39.486,81.506],[71.655,68.177],[90.363,49.469],[90.363,-30.847],[46.432,-74.778]],"c":true},"ix":2},"nm":"Path 1","mn":"ADBE Vector Shape - Group","hd":false},{"ty":"fl","c":{"a":0,"k":[1,0.998526958391,0.999226349475,1],"ix":4},"o":{"a":0,"k":100,"ix":5},"r":1,"bm":0,"nm":"Fill 1","mn":"ADBE Vector Graphic - Fill","hd":false},{"ty":"tr","p":{"a":0,"k":[112.756,81.756],"ix":2},"a":{"a":0,"k":[0,0],"ix":1},"s":{"a":0,"k":[100,100],"ix":3},"r":{"a":0,"k":0,"ix":6},"o":{"a":0,"k":100,"ix":7},"sk":{"a":0,"k":0,"ix":4},"sa":{"a":0,"k":0,"ix":5},"nm":"Transform"}],"nm":"Group 1","np":2,"cix":2,"bm":0,"ix":1,"mn":"ADBE Vector Group","hd":false}],"ip":0,"op":42.0000017106951,"st":0,"bm":0},{"ddd":0,"ind":2,"ty":2,"nm":"path","refId":"image_0","sr":1,"ks":{"o":{"a":0,"k":100,"ix":11},"r":{"a":0,"k":90,"ix":10},"p":{"a":0,"k":[540,862.894,0],"ix":2},"a":{"a":0,"k":[22.233,250.718,0],"ix":1},"s":{"a":0,"k":[100,100,100],"ix":6}},"ao":0,"ip":0,"op":42.0000017106951,"st":0,"bm":0}]}],"layers":[{"ddd":0,"ind":1,"ty":0,"nm":"hand","refId":"comp_0","sr":1,"ks":{"o":{"a":0,"k":100,"ix":11},"r":{"a":0,"k":0,"ix":10},"p":{"a":0,"k":[540,506,0],"ix":2},"a":{"a":0,"k":[540,960,0],"ix":1},"s":{"a":0,"k":[100,100,100],"ix":6}},"ao":0,"w":1080,"h":1920,"ip":0,"op":42.0000017106951,"st":0,"bm":0}],"markers":[]};
+const guideText=`<div class="guide" aria-label="操作案内"><div class="g n"><span class="arr">←</span>なし</div><div class="g l">あり<span class="arr">→</span></div></div>
+  <p class="guide-note">左右にスワイプ（キーボードは ← →）</p>`;
+const guideHTML=()=>`<div class="hand-anim" id="guide" role="img" aria-label="左右にスワイプして判定"><div id="guideL"></div><div id="guideR" hidden></div></div>`;
+let guideAnims=[];
+function clearGuide(){guideAnims.forEach(a=>{try{a.destroy();}catch(e){}});guideAnims=[];}
+// 画面にアニメーションを載せる。ライブラリが読み込めなかったときは文字の案内に差し替える
+function mountGuide(){
+  clearGuide();const box=document.getElementById('guide');if(!box)return;
+  if(!window.lottie){box.outerHTML=guideText;return;}
+  const reduce=window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches;
+  // 左払い（なし）→右払い（あり）を1回ずつ交互に再生する
+  const els=[document.getElementById('guideL'),document.getElementById('guideR')];
+  guideAnims=[HAND_LEFT,HAND_RIGHT].map((d,i)=>lottie.loadAnimation({container:els[i],renderer:'svg',loop:false,autoplay:false,animationData:JSON.parse(JSON.stringify(d))}));
+  if(reduce){els[0].hidden=false;guideAnims[0].goToAndStop(20,true);return;}   // 動きを減らす設定：左払いの途中で止める
+  let cur=0;
+  guideAnims.forEach((a,i)=>a.addEventListener('complete',()=>{if(i!==cur)return;els[cur].hidden=true;cur=1-cur;els[cur].hidden=false;guideAnims[cur].goToAndPlay(0,true);}));
+  guideAnims[0].play();
+}
+
 /* ---------- 画面 ---------- */
 function intro(){
   state={scene:0,round:[],log:[],model:null};
   
-  view.innerHTML=`<section class="panel">
-    <div class="logo-wrap"><h1 class="logo">魔法の数字</h1></div>
-    <div class="row" style="justify-content:center"><button class="btn ghost" id="howBtn" aria-expanded="false" aria-controls="how">あそびかた</button><button class="btn" id="start">はじめる</button></div>
+  view.innerHTML=`<section class="panel intro-panel">
+    <div class="intro-head">
+      <div class="logo-wrap"><h1 class="logo">魔法の数字</h1></div>
+      <div class="row" style="justify-content:center"><button class="btn ghost" id="howBtn" aria-expanded="false" aria-controls="how">あそびかた</button><button class="btn" id="start">はじめる</button></div>
+    </div>
     <div id="how" hidden>
-      <div style="display:flex;flex-direction:column;gap:12px;border-top:1px solid var(--line);padding-top:14px">
-        <p>画面に表示される「魔法の数字」を、制限時間内に「あり」か「なし」で判定してください。制限時間をオーバーすると、自動的に次の数字に進みます。</p>
-        <p>【操作】キーボードの ← →、または左右にスワイプ。</p>
+      <div style="display:flex;flex-direction:column;gap:12px;border-top:1px solid var(--line);padding-top:14px;text-wrap:pretty">
+        <div class="how-sec"><p>【どんなゲーム？】</p><p>画面に表示された数字を「あり」か「なし」かで判定するゲームです。判定の傾向や消費時間の長さで次ステージの数字に変化が生じます。</p><p style="margin-bottom:1.7em">自分だけの「魔法の数字」を見つけて、理想の相手探しに役立てましょう！</p></div>
+        <div class="how-sec"><p>【基本操作】</p><p>左右にスワイプ<span style="white-space:nowrap">（キーボードの ← →でもOK）</span></p>
+          <p style="margin-top:1em">「魔法の数字」が表示されたら、制限時間内に左右のどちらか一方にスワイプしてください。「あり」だと思ったら右にスワイプ、「なし」なら左にスワイプしましょう。</p>
+          <div style="display:flex;justify-content:center">${guideHTML()}</div></div>
+        <div class="how-sec"><p>【制限時間】</p><p>「あり」か「なし」かを判定できる時間は、「魔法の数字」ひとつにつき最大3秒間です。制限時間をオーバーすると自動的に次の数字に進みます。</p></div>
       </div>
     </div>
   </section>`;
   const how=document.getElementById('how'),howBtn=document.getElementById('howBtn');
-  howBtn.onclick=()=>{how.hidden=!how.hidden;howBtn.setAttribute('aria-expanded',String(!how.hidden));};
+  howBtn.onclick=()=>{how.hidden=!how.hidden;howBtn.setAttribute('aria-expanded',String(!how.hidden));if(how.hidden)clearGuide();else mountGuide();};   // アニメーションは開いている間だけ再生
   document.getElementById('start').onclick=()=>{audio();startScene(1);};
 }
 
 function startScene(n){
+  clearGuide();
+  document.documentElement.classList.add('playing');
   state.scene=n;
   state.round=n===1?scene1Candidates():scene2Candidates(state.model);
   let c=3;
-  view.innerHTML=`<section class="panel" style="align-items:center;text-align:center"><p class="muted">第${n}ステージ　まもなく開始</p><div class="count" id="cd">3</div></section>`;
+  view.innerHTML=`<section class="panel same-h" style="align-items:center;text-align:center"><p class="muted">第${n}ステージ開始まで　あと</p><div class="count" id="cd">3</div></section>`;
   sfxBeep(false);
   const t=setInterval(()=>{c--;if(c<=0){clearInterval(t);sfxBeep(true);runCards(0);}else{document.getElementById('cd').textContent=c;sfxBeep(false);}},700);
 }
 
-let tick=null,keyHandler=null,ticker=null;
+let tick=null,keyHandler=null,ticker=null,detachSwipe=()=>{};
 function runCards(i){
+  clearGuide();
   if(i>=N) return finishScene();
   const p=state.round[i];
   view.innerHTML=`<div style="display:flex;flex-direction:column;gap:14px">
+    <div class="progress" aria-label="${i+1}問目／全${N}問">${i+1}/${N}</div>
+    <div class="dots" aria-hidden="true">${Array.from({length:N},(_,k)=>`<i${k<=i?' class="on"':''}></i>`).join('')}</div>
     <article class="card" id="card">
-      <div class="progress">${i+1}/${N}</div>
       <div class="stamp l" id="sl">あり</div><div class="stamp n" id="sn">なし</div>
-      <div class="timer"><i id="bar"></i></div>
       <div class="magic">${p.h}<span class="sl"><svg viewBox="0 0 10 20" preserveAspectRatio="none" aria-hidden="true"><line x1="0" y1="20" x2="10" y2="0" stroke="currentColor" stroke-width="1" vector-effect="non-scaling-stroke"/></svg><i>/</i></span>${p.w}<span class="sl"><svg viewBox="0 0 10 20" preserveAspectRatio="none" aria-hidden="true"><line x1="0" y1="20" x2="10" y2="0" stroke="currentColor" stroke-width="1" vector-effect="non-scaling-stroke"/></svg><i>/</i></span>${p.a}</div>
-    </article>
-    <div class="judge"><button class="nope" id="bn">なし<kbd>←</kbd></button><button class="like" id="bl">あり<kbd>→</kbd></button></div></div>`;
+      <div class="timer"><i id="bar"></i></div>
+    </article></div>`;
   const t0=performance.now();let done=false;
   const bar=document.getElementById('bar'),card=document.getElementById('card');
-  const answer=(like)=>{
+  const reduce=window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const answer=(like,fromX=0,vx=0)=>{
     if(done)return;done=true;cancelAnimationFrame(tick);document.removeEventListener('keydown',keyHandler);
-    clearInterval(ticker);
+    clearInterval(ticker);detachSwipe();
     if(like!=null)sfxSwipe();
     const t=like==null?null:performance.now()-t0;
     state.log.push({scene:state.scene,idx:i,p,like,t});
-    card.classList.add(like==null?'go-skip':like?'go-like':'go-nope');
+    card.classList.remove('dragging');
+    if(like==null||reduce){card.classList.add(like==null?'go-skip':like?'go-like':'go-nope');}
+    else{
+      // 改善案⑤：離した位置と勢いのまま、画面外へ飛ばす
+      const dir=like?1:-1,dist=window.innerWidth*0.9+Math.abs(fromX);
+      const dur=Math.round(clamp(260-Math.abs(vx)*90,120,220));
+      card.style.transition=`transform ${dur}ms cubic-bezier(.2,.7,.3,1), opacity ${dur}ms ease-out`;
+      card.style.transform=`translateX(${dir*dist}px) rotate(${dir*18}deg)`;card.style.opacity='0';
+    }
     setTimeout(()=>runCards(i+1),200);
   };
   const loop=()=>{const el=performance.now()-t0;const r=clamp(1-el/LIMIT,0,1);bar.style.transform=`scaleX(${r})`;
@@ -376,14 +494,36 @@ function runCards(i){
   // 制限時間中は秒間4回「チッ」を鳴らす
   clearInterval(ticker);sfxTick();
   ticker=setInterval(()=>{if(done||performance.now()-t0>=LIMIT){clearInterval(ticker);return;}sfxTick();},250);
-  document.getElementById('bl').onclick=()=>answer(true);
-  document.getElementById('bn').onclick=()=>answer(false);
   keyHandler=e=>{if(e.key==='ArrowRight')answer(true);if(e.key==='ArrowLeft')answer(false);};
   document.addEventListener('keydown',keyHandler);
-  let sx=null;
-  card.addEventListener('pointerdown',e=>{sx=e.clientX;card.setPointerCapture(e.pointerId);});
-  card.addEventListener('pointermove',e=>{if(sx==null)return;const dx=e.clientX-sx;card.style.transform=`translateX(${dx}px) rotate(${dx/20}deg)`;document.getElementById('sl').style.opacity=clamp(dx/80,0,1);document.getElementById('sn').style.opacity=clamp(-dx/80,0,1);});
-  card.addEventListener('pointerup',e=>{if(sx==null)return;const dx=e.clientX-sx;sx=null;card.style.transform='';if(dx>80)answer(true);else if(dx<-80)answer(false);else{document.getElementById('sl').style.opacity=0;document.getElementById('sn').style.opacity=0;}});
+  // ---- スワイプ（改善案①〜④） ----
+  const sl=document.getElementById('sl'),sn=document.getElementById('sn');
+  const DIST=80,FLICK_V=0.45,FLICK_MIN=20;   // 判定：80px以上動かす、または速く払う（0.45px/ms以上・20px以上）
+  let pid=null,sx=0,sy=0,dx=0,trail=[];
+  const setDrag=x=>{card.style.transform=`translateX(${x}px) rotate(${x/20}deg)`;sl.style.opacity=clamp(x/DIST,0,1);sn.style.opacity=clamp(-x/DIST,0,1);};
+  const reset=()=>{   // 判定に届かなかったら、バネのように中央へ戻す
+    card.classList.remove('dragging');card.style.transition='transform .28s cubic-bezier(.2,1.5,.4,1)';card.style.transform='';
+    sl.style.opacity=0;sn.style.opacity=0;setTimeout(()=>{if(!done)card.style.transition='';},300);};
+  const down=e=>{if(done||pid!==null||(e.pointerType==='mouse'&&e.button!==0))return;
+    pid=e.pointerId;sx=e.clientX;sy=e.clientY;dx=0;trail=[[e.timeStamp,e.clientX]];
+    card.style.transition='';card.classList.add('dragging');};   // 改善案①：ドラッグ中は補間なしで指に追従
+  const move=e=>{if(e.pointerId!==pid||done)return;dx=e.clientX-sx;setDrag(dx);
+    trail.push([e.timeStamp,e.clientX]);while(trail.length>2&&e.timeStamp-trail[0][0]>90)trail.shift();
+    if(e.cancelable)e.preventDefault();};
+  const up=e=>{if(e.pointerId!==pid)return;pid=null;if(done)return;
+    dx=e.clientX-sx;
+    // 直近の払う速さ（px/ms）：指を離す直前0.1秒の動きから求める。止めてから離した場合は0になる
+    const rec=trail.filter(q=>q[0]>=e.timeStamp-100);
+    const vx=rec.length>=2?(rec[rec.length-1][1]-rec[0][1])/Math.max(16,e.timeStamp-rec[0][0]):0;
+    // 改善案②：距離か、払う速さで判定
+    const right=dx>=DIST||(vx>=FLICK_V&&dx>=FLICK_MIN),left=dx<=-DIST||(vx<=-FLICK_V&&dx<=-FLICK_MIN);
+    if(right)answer(true,dx,vx);else if(left)answer(false,dx,vx);else reset();};
+  const cancel=e=>{if(e.pointerId!==pid)return;pid=null;if(!done)reset();};   // 改善案④：横取りされたら元に戻す
+  // 改善案③：カードの上だけでなく画面全体で受け付ける
+  document.addEventListener('pointerdown',down);document.addEventListener('pointermove',move,{passive:false});
+  document.addEventListener('pointerup',up);document.addEventListener('pointercancel',cancel);
+  detachSwipe=()=>{document.removeEventListener('pointerdown',down);document.removeEventListener('pointermove',move);
+    document.removeEventListener('pointerup',up);document.removeEventListener('pointercancel',cancel);};
 }
 
 function weightedRows(){
@@ -402,16 +542,20 @@ function weightedRows(){
 }
 
 function finishScene(){
+  document.documentElement.classList.remove('playing');
   const rows=weightedRows();
   state.model=train(rows);
   const cur=state.log.filter(r=>r.scene===state.scene);
   const nl=cur.filter(r=>r.like===true).length,nn=cur.filter(r=>r.like===false).length,ns=cur.filter(r=>r.like==null).length;
   if(state.scene<STAGES){
     const n=state.scene;
-    view.innerHTML=`<section class="panel" style="align-items:center;text-align:center">
+    view.innerHTML=`<section class="panel same-h" style="align-items:center;text-align:center;padding-block:36px;gap:18px">
       <h2>第${n}ステージ終了</h2>
-      <p class="muted">${n===1?'第1ステージ':`第${n}ステージまで`}の判定をもとに、「魔法の数字」をカスタマイズします。</p>
-      <div><button class="btn" id="next">第${n+1}ステージ開始</button></div></section>`;
+      <div class="stagebar" role="img" aria-label="全${STAGES}ステージ中${n}ステージ完了">${Array.from({length:STAGES},(_,k)=>`<i class="${k<n?'on':''}${k===n-1?' new':''}"></i>`).join('')}</div>
+      <div style="margin-top:36px"><button class="btn" id="next">第${n+1}ステージ開始</button></div></section>`;
+    // 新しく埋まる区間が濃いグレーになりきったところで「ぽこっ」
+    const seg=document.querySelector('.stagebar i.new');const reduceM=window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if(seg){if(reduceM)sfxPop();else seg.addEventListener('animationend',sfxPop,{once:true});}
     document.getElementById('next').onclick=()=>startScene(n+1);
   } else showResult(rows);
 }
@@ -439,41 +583,57 @@ function curveSVG(ax,mark){
 
 function showResult(rows){
   if(!rows.some(r=>r.like===true)){
-    view.innerHTML=`<section class="panel"><h2>好みの数字が見つかりませんでした</h2><p>${N*STAGES}人全員を「なし」と判定したため、好みを推定できません。もう一度遊ぶと、別の${N}人から始まります。</p><div><button class="btn" id="again">もう一度遊ぶ</button></div></section>`;
+    view.innerHTML=`<section class="panel" style="align-items:center;text-align:center"><h2>測定失敗</h2><p style="text-wrap:balance">すべての数字に「なし」と回答したため、あなたの好きな数字がわかりませんでした。</p><div><button class="btn" id="again">もう一度遊ぶ</button></div></section>`;
     document.getElementById('again').onclick=intro;return;
   }
   const best=bestCombo(state.model,rows);const sh=axisShape(state.model,best);
   const val={h:best.h,a:best.a,b:best._bmi};
   const order=[...sh].sort((x,y)=>y.share-x.share);
-  const log=rows.map(r=>`<tr><td>${'①②③'[r.scene-1]}${String(r.idx+1).padStart(2,'0')}</td><td>${r.p.h}</td><td>${r.p.w}</td><td>${r.p.a}</td><td>${r.p._bmi.toFixed(1)}</td>
-    <td class="${r.like==null?'s':r.like?'l':'n'}">${r.like==null?'無効':r.like?'あり':'なし'}</td><td>${r.t==null?'—':(r.t/1000).toFixed(2)}</td></tr>`).join('');
+  // 「あり」を押すのが速かった順にベスト5（「なし」と判定した数字は出さない）
+  const seen=new Set();
+  const top5=rows.filter(r=>r.like===true&&r.t!=null).sort((x,y)=>x.t-y.t).filter(r=>{const k=r.p.h+'/'+r.p.w+'/'+r.p.a;if(seen.has(k))return false;seen.add(k);return true;}).slice(0,5);   // 同じ数字が別ステージで出た場合は1回だけ
+  // 表示上の回答時間（小数2桁）が直前の行と同じなら同順位とみなし、2個目以降の順位は空欄にする。
+  // 次に時間が変わった行は、続きの番号（1位のあとは2位）にする
+  const sec=r=>(r.t/1000).toFixed(2);let rank=0;
+  const log=top5.map((r,i)=>{const tie=i>0&&sec(r)===sec(top5[i-1]);if(!tie)rank++;return `<tr${rank===1?' class="first"':''}><td>${tie?'':rank}</td><td class="num">${r.p.h}/${r.p.w}/${r.p.a}</td><td>${sec(r)}秒</td></tr>`;}).join('');
   view.innerHTML=`<div style="display:flex;flex-direction:column;gap:16px">
   <section class="panel result-main">
-    <p class="muted" style="text-align:center;width:100%">あなたが好きな「魔法の数字」</p>
+    <p class="muted" style="text-align:center;width:100%"><span class="dash-u">あなたが好きな「魔法の数字」</span></p>
     <div class="magic" id="reels"><span class="reel" id="r0">${best.h}</span><span class="sl"><svg viewBox="0 0 10 20" preserveAspectRatio="none" aria-hidden="true"><line x1="0" y1="20" x2="10" y2="0" stroke="currentColor" stroke-width="1" vector-effect="non-scaling-stroke"/></svg><i>/</i></span><span class="reel" id="r1">${best.w}</span><span class="sl"><svg viewBox="0 0 10 20" preserveAspectRatio="none" aria-hidden="true"><line x1="0" y1="20" x2="10" y2="0" stroke="currentColor" stroke-width="1" vector-effect="non-scaling-stroke"/></svg><i>/</i></span><span class="reel" id="r2">${best.a}</span></div>
-  </section>
-  <details class="panel" id="detail" hidden><summary>詳細</summary>
-    <p class="muted" style="font-size:13px;margin-bottom:20px">数字は「身長（cm）/体重（kg）/年齢（才）」。体型は隠しパラメータのBMIで判定しています。</p>
-    <h2>あなたが好む数字の傾向<small style="font-size:12px;font-weight:400;color:var(--muted);margin-left:4px">（重視度順）</small></h2>
+  <details class="detail" id="detail" hidden><summary>詳細</summary>
+    <h2 style="margin-top:16px;text-align:center">あなたが選ぶ数字の傾向</h2>
     ${order.map(s=>`<div class="axis">
-      <div class="axis-head"><span>${s.name}：${s.label}</span><span class="muted" style="font-family:var(--f-mono)">重視度：${Math.round(s.share*100)}%</span></div>
+      <div class="axis-head"><span>${s.name}：${s.label}</span><span class="muted" style="font-family:var(--f-mono)">重要度：${Math.round(s.share*100)}%</span></div>
       ${curveSVG(s,val[s.k])}
     </div>`).join('')}
-    <h2 style="margin-top:28px">判定ログ</h2>
-    <div class="logwrap"><table><thead><tr><th>No.</th><th>身長</th><th>体重</th><th>年齢</th><th>BMI</th><th>判定</th><th>秒</th></tr></thead><tbody>${log}</tbody></table></div>
+    <h2 style="margin-top:28px;text-align:center">判定即答ランキング</h2>
+    <div class="logwrap"><table class="top5"><thead><tr><th>順位</th><th>魔法の数字</th><th>判定時間</th></tr></thead><tbody>${log}</tbody></table></div>
   </details>
-  <div class="row" id="afterRow" hidden style="justify-content:center"><a class="btn" id="shareX" href="https://twitter.com/intent/tweet?text=${encodeURIComponent(`私が好きな「魔法の数字」は ${best.h}/${best.w}/${best.a} でした。`)}" target="_blank" rel="noopener">Xで共有</a><button class="btn ghost" id="again">もう一度遊ぶ</button></div></div>`;
+  </section>
+  <div class="row" id="afterRow" hidden style="justify-content:center"><a class="btn ghost" id="shareX" href="https://twitter.com/intent/tweet?text=${encodeURIComponent(`私が好きな「魔法の数字」は ${best.h}/${best.w}/${best.a} でした。`)}" target="_blank" rel="noopener">Xで共有</a><button class="btn" id="again">もう一度遊ぶ</button></div></div>`;
   document.getElementById('again').onclick=intro;
   drumroll([best.h,best.w,best.a],()=>{document.getElementById('detail').hidden=false;document.getElementById('afterRow').hidden=false;});
 }
 
 /* ---------- 結果発表のドラムロール ---------- */
+// 確定した数字を、左から右へ観客のウェーブのように1回だけ跳ねさせる
+function wave(done){
+  const m=document.getElementById('reels');if(!m){done();return;}
+  const items=[];
+  [...m.children].forEach(c=>{
+    if(c.classList.contains('reel')){const txt=c.textContent;c.textContent='';[...txt].forEach(ch=>{const sp=document.createElement('span');sp.className='wv';sp.textContent=ch;c.appendChild(sp);items.push(sp);});}
+    else if(c.classList.contains('sl'))items.push(c);
+  });
+  const STEP=60,DUR=520;
+  items.forEach((el,k)=>{el.style.animation=`wave ${DUR}ms cubic-bezier(.3,.7,.4,1) ${k*STEP}ms both`;setTimeout(()=>sfxWaveBlip(k),k*STEP);});
+  setTimeout(done,(items.length-1)*STEP+DUR);
+}
 function drumroll(vals,done){
   const els=[0,1,2].map(i=>document.getElementById('r'+i));
   const reduce=window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches;
   if(reduce){sfxWin();done();return;}
   // 回転中も最終値と同じ桁数の数字を出して、桁が変わって横幅がずれないようにする
-  const ranges=vals.map((v,i)=>{const lim=[[140,200],[30,150],[18,70]][i];const d=String(v).length;return [Math.max(lim[0],10**(d-1)),Math.min(lim[1],10**d-1)];});
+  const ranges=vals.map((v,i)=>{const lim=[[140,200],[30,150],[18,75]][i];const d=String(v).length;return [Math.max(lim[0],10**(d-1)),Math.min(lim[1],10**d-1)];});
   const stopAt=[1100,1600,2100];const t0=performance.now();const stopped=[false,false,false];
   els.forEach(e=>e.classList.add('spin'));
   const iv=setInterval(()=>{
@@ -482,7 +642,7 @@ function drumroll(vals,done){
       if(el>=stopAt[i]){stopped[i]=true;e.textContent=vals[i];e.classList.remove('spin');e.classList.add('stop');sfxStop();return;}
       spinning=true;const [lo,hi]=ranges[i];e.textContent=Math.floor(lo+Math.random()*(hi-lo+1));});
     if(spinning)sfxRoll();
-    if(stopped.every(Boolean)){clearInterval(iv);setTimeout(()=>{sfxWin();done();},250);}
+    if(stopped.every(Boolean)){clearInterval(iv);setTimeout(()=>wave(()=>{sfxWin();done();}),200);}
   },70);
 }
 
