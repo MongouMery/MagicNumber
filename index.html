@@ -94,6 +94,8 @@ html.playing,html.playing body{overflow-x:clip;touch-action:none;overscroll-beha
 .intro-panel{box-sizing:border-box;min-height:240px}
 /* タイトルとボタンは常に同じ高さの領域の中央に置く。「あそびかた」を開いても位置が動かないよう、説明はその下に足す */
 .intro-head{min-height:194px;display:flex;flex-direction:column;justify-content:center;gap:14px}
+.how-body p{text-align:justify;text-align-last:left;text-wrap:wrap}
+.how-body p.nj{text-align:left}   /* 意図して改行させている短い行は両端そろえにしない */   /* 両端そろえ：iPhoneのSafariでも右端に余白が偏らないようにする */
 .how-sec{display:flex;flex-direction:column;gap:2px}
 /* スワイプ操作のアニメーション：素材は白い手なので、ライトテーマでは濃い色に変えて見えるようにする */
 .hand-anim{position:relative;width:min(260px,100%);height:110px;overflow:hidden;filter:var(--hand-filter)}
@@ -429,9 +431,9 @@ function intro(){
       <div class="row" style="justify-content:center"><button class="btn ghost" id="howBtn" aria-expanded="false" aria-controls="how">あそびかた</button><button class="btn" id="start">はじめる</button></div>
     </div>
     <div id="how" hidden>
-      <div style="display:flex;flex-direction:column;gap:12px;border-top:1px solid var(--line);padding-top:14px;text-wrap:pretty">
+      <div class="how-body" style="display:flex;flex-direction:column;gap:12px;border-top:1px solid var(--line);padding-top:14px">
         <div class="how-sec"><p>【どんなゲーム？】</p><p>画面に表示された数字を「あり」か「なし」かで判定するゲームです。判定の傾向や消費時間の長さで次ステージの数字に変化が生じます。</p><p style="margin-bottom:1.7em">自分だけの「魔法の数字」を見つけて、理想の相手探しに役立てましょう！</p></div>
-        <div class="how-sec"><p>【基本操作】</p><p>左右にスワイプ<span style="white-space:nowrap">（キーボードの ← →でもOK）</span></p>
+        <div class="how-sec"><p>【基本操作】</p><p class="nj">左右にスワイプ<span style="white-space:nowrap">（キーボードの ← →でもOK）</span></p>
           <p style="margin-top:1em">「魔法の数字」が表示されたら、制限時間内に左右のどちらか一方にスワイプしてください。「あり」だと思ったら右にスワイプ、「なし」なら左にスワイプしましょう。</p>
           <div style="display:flex;justify-content:center">${guideHTML()}</div></div>
         <div class="how-sec"><p>【制限時間】</p><p>「あり」か「なし」かを判定できる時間は、「魔法の数字」ひとつにつき最大3秒間です。制限時間をオーバーすると自動的に次の数字に進みます。</p></div>
