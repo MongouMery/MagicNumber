@@ -44,7 +44,10 @@ p{margin:0}
 .muted{color:var(--muted)}
 .panel{background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:22px 20px;display:flex;flex-direction:column;gap:14px}
 .rules{margin:0;padding-left:1.2em;display:flex;flex-direction:column;gap:4px}
-.btn{display:inline-block;text-decoration:none;font:700 16px var(--f-body);border:0;border-radius:999px;padding:14px 22px;cursor:pointer;background:var(--ink);color:var(--bg)}
+.btn{display:inline-block;text-decoration:none;font:700 16px var(--f-body);border:0;border-radius:999px;padding:14px 22px;cursor:pointer;background:var(--ink);color:var(--bg);transition:transform .12s ease;-webkit-tap-highlight-color:transparent;touch-action:manipulation}
+/* 角丸ボタンは押している間だけ少し縮む */
+.btn:active,.btn.pressed{transform:scale(.94)}
+@media (prefers-reduced-motion: reduce){.btn{transition:none}.btn:active,.btn.pressed{transform:none;opacity:.8}}
 .btn:focus-visible,.judge button:focus-visible{outline:3px solid var(--warn);outline-offset:3px}
 .dots{display:flex;justify-content:center;gap:clamp(2px,1vw,4px);margin-top:-6px;margin-bottom:8px}
 .dots i{flex:0 0 auto;width:clamp(5px,1.6vw,7px);aspect-ratio:1;border-radius:50%;background:var(--dot-off)}
@@ -57,7 +60,7 @@ html.playing,html.playing body{overflow-x:clip;touch-action:none;overscroll-beha
 .card.go-like{transform:translateX(40%) rotate(8deg);opacity:0}
 .card.go-nope{transform:translateX(-40%) rotate(-8deg);opacity:0}
 .card.go-skip{transform:translateY(16px);opacity:0}
-.timer{height:6px;border-radius:3px;background:var(--line);overflow:hidden}
+.timer{width:90%;margin-inline:auto;height:6px;border-radius:3px;background:var(--line);overflow:hidden}   /* 時間経過バー：カード幅いっぱいの90%で中央に置く */
 .timer i{display:block;height:100%;width:100%;background:var(--ink);transform-origin:left;transform:scaleX(1)}
 .magic{font-family:var(--f-num);font-weight:900;font-size:min(62px,15.5cqi);line-height:1.15;letter-spacing:.01em;font-variant-numeric:tabular-nums;text-align:center;padding-block:18px 10px;white-space:nowrap}
 [hidden]{display:none!important}
@@ -90,9 +93,9 @@ html.playing,html.playing body{overflow-x:clip;touch-action:none;overscroll-beha
 .guide .g.l{color:var(--like)}
 .guide .arr{font-family:var(--f-num);font-size:26px;line-height:1}
 .guide-note{font-size:12px;color:var(--muted)}
-.same-h{box-sizing:border-box;min-height:240px;justify-content:center}   /* TOP・カウントダウン・ステージ終了の枠を同じ縦幅にそろえる（TOPは「あそびかた」を開くとその分伸びる） */
+.same-h{box-sizing:border-box;min-height:240px;justify-content:center}   /* TOP・カウントダウン・ステージ終了の枠を同じ縦幅にそろえる（TOPは「遊び方」を開くとその分伸びる） */
 .intro-panel{box-sizing:border-box;min-height:240px}
-/* タイトルとボタンは常に同じ高さの領域の中央に置く。「あそびかた」を開いても位置が動かないよう、説明はその下に足す */
+/* タイトルとボタンは常に同じ高さの領域の中央に置く。「遊び方」を開いても位置が動かないよう、説明はその下に足す */
 .intro-head{min-height:194px;display:flex;flex-direction:column;justify-content:center;gap:14px}
 .how-body p:not(.guide-note){text-align:justify;text-align-last:left;text-wrap:wrap;width:100%;max-width:var(--col,100%);margin-inline:auto}
 /* 本文の幅を全角1文字ぶんの整数倍にそろえて中央に置く。両端そろえの効き方がブラウザごとに違っても、左右の余白が均等になる */
@@ -422,8 +425,14 @@ function mountGuide(){
   guideAnims[0].play();
 }
 
+// iPhoneのSafariでは押下中の:activeが効きにくいので、指が触れている間だけ pressed を付ける
+document.addEventListener('pointerdown',e=>{const b=e.target.closest('.btn');if(!b)return;b.classList.add('pressed');
+  const off=()=>{b.classList.remove('pressed');document.removeEventListener('pointerup',off);document.removeEventListener('pointercancel',off);};
+  document.addEventListener('pointerup',off);document.addEventListener('pointercancel',off);});
+document.addEventListener('touchstart',()=>{},{passive:true});
+
 /* ---------- 画面 ---------- */
-// 「あそびかた」本文の幅を、全角1文字（＝文字サイズ）の整数倍に切りそろえる
+// 「遊び方」本文の幅を、全角1文字（＝文字サイズ）の整数倍に切りそろえる
 function fitHowText(){
   const body=document.querySelector('.how-body');if(!body||!body.offsetParent)return;
   body.style.removeProperty('--col');
@@ -437,15 +446,15 @@ function intro(){
   view.innerHTML=`<section class="panel intro-panel">
     <div class="intro-head">
       <div class="logo-wrap"><h1 class="logo">魔法の数字</h1></div>
-      <div class="row" style="justify-content:center"><button class="btn ghost" id="howBtn" aria-expanded="false" aria-controls="how">あそびかた</button><button class="btn" id="start">はじめる</button></div>
+      <div class="row" style="justify-content:center"><button class="btn ghost" id="howBtn" aria-expanded="false" aria-controls="how">遊び方</button><button class="btn" id="start">スタート</button></div>
     </div>
     <div id="how" hidden>
-      <div class="how-body" style="display:flex;flex-direction:column;gap:12px;border-top:1px solid var(--line);padding-top:14px">
-        <div class="how-sec"><p>【どんなゲーム？】</p><p>画面に表示された数字を「あり」か「なし」かで判定するゲームです。判定の傾向や消費時間の長さで次ステージの数字に変化が生じます。</p><p style="margin-bottom:1.7em">自分だけの「魔法の数字」を見つけて、理想の相手探しに役立てましょう！</p></div>
+      <div class="how-body" style="display:flex;flex-direction:column;gap:1.6em;border-top:1px solid var(--line);padding-top:14px">
+        <div class="how-sec"><p>【どんなゲーム？】</p><p>画面に表示された数字を「あり」か「なし」かで判定するゲームです。判定の傾向や消費時間から、あなたの好きな「魔法の数字」を予想します。</p></div>
         <div class="how-sec"><p>【基本操作】</p><p class="nj">左右にスワイプ<span style="white-space:nowrap">（キーボードの ← →でもOK）</span></p>
-          <p style="margin-top:1em">「魔法の数字」が表示されたら、制限時間内に左右のどちらか一方にスワイプしてください。「あり」だと思ったら右にスワイプ、「なし」なら左にスワイプしましょう。</p>
+          <p>「あり」の場合は右に、「なし」なら左にスワイプしてください。</p>
           <div style="display:flex;justify-content:center">${guideHTML()}</div></div>
-        <div class="how-sec"><p>【制限時間】</p><p>「あり」か「なし」かを判定できる時間は、「魔法の数字」ひとつにつき最大3秒間です。制限時間をオーバーすると自動的に次の数字に進みます。</p></div>
+        <div class="how-sec"><p>【制限時間】</p><p>「あり」「なし」を判定できる時間は、数字1種類につき最大3秒間です。3秒を過ぎると「判定なし」と見なされ、自動的に次の数字に進みます。</p></div>
       </div>
     </div>
   </section>`;
@@ -584,11 +593,12 @@ function curveSVG(ax,mark){
     const c1=[p1[0]+(p2[0]-p0[0])/6,p1[1]+(p2[1]-p0[1])/6],c2=[p2[0]-(p3[0]-p1[0])/6,p2[1]-(p3[1]-p1[1])/6];
     d+=`C${c1[0].toFixed(1)},${c1[1].toFixed(1)} ${c2[0].toFixed(1)},${c2[1].toFixed(1)} ${p2[0].toFixed(1)},${p2[1].toFixed(1)}`;}
   const mz=ax.k==='b'?zB(mark):z(mark,ax.r);const mv=ax.pts.reduce((m,p)=>Math.abs(p.zz-mz)<Math.abs(m.zz-mz)?p:m).v;
-  return `<svg class="curve" viewBox="0 0 ${W} ${H+14}" role="img" aria-label="${ax.name}の好みの曲線">
+  return `<svg class="curve" viewBox="0 0 ${W} ${H+17}" role="img" aria-label="${ax.name}の好みの曲線">
+    <line x1="${pad}" x2="${W-pad}" y1="${H-1.5}" y2="${H-1.5}" stroke="var(--line)" stroke-width="1"/>
     <path d="${d}" fill="none" stroke="var(--ink)" stroke-width="2"/>
     <circle cx="${X(mz)}" cy="${Y(mv)}" r="5" fill="var(--like)"/>
-    <text x="${pad}" y="${H+12}" font-size="11" fill="var(--muted)" font-family="IBM Plex Mono,monospace">${lab(0)}</text>
-    <text x="${W-pad}" y="${H+12}" font-size="11" fill="var(--muted)" text-anchor="end" font-family="IBM Plex Mono,monospace">${lab(1)}</text>
+    <text x="${pad}" y="${H+13}" font-size="11" fill="var(--muted)" font-family="IBM Plex Mono,monospace">${lab(0)}</text>
+    <text x="${W-pad}" y="${H+13}" font-size="11" fill="var(--muted)" text-anchor="end" font-family="IBM Plex Mono,monospace">${lab(1)}</text>
   </svg>`;
 }
 
@@ -612,12 +622,12 @@ function showResult(rows){
     <p class="muted" style="text-align:center;width:100%"><span class="dash-u">あなたが好きな「魔法の数字」</span></p>
     <div class="magic" id="reels"><span class="reel" id="r0">${best.h}</span><span class="sl"><svg viewBox="0 0 10 20" preserveAspectRatio="none" aria-hidden="true"><line x1="0" y1="20" x2="10" y2="0" stroke="currentColor" stroke-width="1" vector-effect="non-scaling-stroke"/></svg><i>/</i></span><span class="reel" id="r1">${best.w}</span><span class="sl"><svg viewBox="0 0 10 20" preserveAspectRatio="none" aria-hidden="true"><line x1="0" y1="20" x2="10" y2="0" stroke="currentColor" stroke-width="1" vector-effect="non-scaling-stroke"/></svg><i>/</i></span><span class="reel" id="r2">${best.a}</span></div>
   <details class="detail" id="detail" hidden><summary>詳細</summary>
-    <h2 style="margin-top:16px;text-align:center">あなたが選ぶ数字の傾向</h2>
+    <h2 style="margin-top:16px;text-align:center">あなたの判定の傾向</h2>
     ${order.map(s=>`<div class="axis">
       <div class="axis-head"><span>${s.name}：${s.label}</span><span class="muted" style="font-family:var(--f-mono)">重要度：${Math.round(s.share*100)}%</span></div>
       ${curveSVG(s,val[s.k])}
     </div>`).join('')}
-    <h2 style="margin-top:28px;text-align:center">判定即答ランキング</h2>
+    <h2 style="margin-top:28px;text-align:center">「あり」判定即答ランキング</h2>
     <div class="logwrap"><table class="top5"><thead><tr><th>順位</th><th>魔法の数字</th><th>判定時間</th></tr></thead><tbody>${log}</tbody></table></div>
   </details>
   </section>
