@@ -1,0 +1,493 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#faf9f5;color:#141413}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>魔法の数字</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@900&family=Dela+Gothic+One&family=Zen+Kaku+Gothic+New:wght@400;700&family=IBM+Plex+Mono:wght@500&display=swap">
+<style>
+/* Layout: one centered column like a phone app — header, one profile card, two big judge buttons; result is a spec sheet */
+:root{
+  --bg:#eef0f4; --surface:#ffffff; --ink:#1d2230; --muted:#677087; --line:#d6dae3;
+  --like:#e0475b; --like-soft:#fbe3e6; --nope:#3f6fb5; --nope-soft:#e1eaf7; --warn:#c98a12;
+  --f-display:"Dela Gothic One","Hiragino Kaku Gothic StdN",sans-serif;
+  --f-body:"Zen Kaku Gothic New","Hiragino Sans","Yu Gothic",sans-serif;
+  --f-num:"Archivo","Helvetica Neue",Arial,sans-serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#13161e; --surface:#1d212c; --ink:#e9ecf3; --muted:#9aa2b6; --line:#2e3442;
+  --like:#f06878; --like-soft:#3a1f26; --nope:#6f9be0; --nope-soft:#1d2a40; --warn:#e2a93a; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#13161e; --surface:#1d212c; --ink:#e9ecf3; --muted:#9aa2b6; --line:#2e3442;
+  --like:#f06878; --like-soft:#3a1f26; --nope:#6f9be0; --nope-soft:#1d2a40; --warn:#e2a93a; color-scheme:dark}
+html,body{height:100%}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:15px;line-height:1.7}
+.wrap{max-width:440px;margin:0 auto;padding:20px 16px 40px;display:flex;flex-direction:column;gap:18px}
+header{display:flex;justify-content:flex-end;align-items:baseline;gap:12px}
+.logo-wrap{container-type:inline-size}
+.logo{font-family:var(--f-display);font-weight:400;font-size:19.6cqi;line-height:1.15;letter-spacing:0;white-space:nowrap;text-align:center}
+.brand{font-family:var(--f-display);font-size:18px;letter-spacing:.02em}
+.scene{font-family:var(--f-mono);font-size:12px;color:var(--muted);letter-spacing:.08em}
+h1,h2{font-family:var(--f-display);font-weight:400;text-wrap:balance;margin:0}
+h2{font-family:var(--f-body);font-weight:700}
+h1{font-size:26px;line-height:1.3}
+h2{font-size:18px}
+p{margin:0}
+.muted{color:var(--muted)}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:22px 20px;display:flex;flex-direction:column;gap:14px}
+.rules{margin:0;padding-left:1.2em;display:flex;flex-direction:column;gap:4px}
+.btn{display:inline-block;text-decoration:none;font:700 16px var(--f-body);border:0;border-radius:999px;padding:14px 22px;cursor:pointer;background:var(--ink);color:var(--bg)}
+.btn:focus-visible,.judge button:focus-visible{outline:3px solid var(--warn);outline-offset:3px}
+.progress{text-align:center;font-family:var(--f-mono);font-size:13px;color:var(--muted);font-variant-numeric:tabular-nums}
+.card{position:relative;background:var(--surface);border:1px solid var(--line);border-radius:22px;padding:26px 22px 22px;display:flex;flex-direction:column;gap:18px;touch-action:pan-y;user-select:none;transition:transform .18s ease,opacity .18s ease}
+.card.go-like{transform:translateX(40%) rotate(8deg);opacity:0}
+.card.go-nope{transform:translateX(-40%) rotate(-8deg);opacity:0}
+.card.go-skip{transform:translateY(16px);opacity:0}
+.timer{height:6px;border-radius:3px;background:var(--line);overflow:hidden}
+.timer i{display:block;height:100%;width:100%;background:var(--ink);transform-origin:left;transform:scaleX(1)}
+.magic{font-family:var(--f-num);font-weight:900;font-size:min(52px,14cqi);line-height:1.15;letter-spacing:.01em;font-variant-numeric:tabular-nums;text-align:center;padding-block:18px 10px;white-space:nowrap}
+[hidden]{display:none!important}
+.card,.result-main{container-type:inline-size}
+.reel{display:inline-block;text-align:center}
+.reel.spin{filter:blur(1.2px);opacity:.75}
+.reel.stop{animation:reelstop .22s ease-out}
+@keyframes reelstop{0%{transform:translateY(-.18em)}60%{transform:translateY(.06em)}100%{transform:none}}
+@media (prefers-reduced-motion: reduce){.reel.stop{animation:none}}
+.magic .sl{display:inline-block;position:relative;width:.42em;height:.82em;margin:0 .08em;vertical-align:-.04em;color:var(--muted)}
+.magic .sl svg{position:absolute;inset:0;width:100%;height:100%;overflow:visible}
+.magic .sl i{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.result-main .magic{width:100%}
+.stamp{position:absolute;top:22px;right:20px;font-family:var(--f-display);font-size:20px;padding:2px 12px;border-radius:8px;border:3px solid currentColor;opacity:0;transform:rotate(8deg)}
+.stamp.l{color:var(--like)} .stamp.n{color:var(--nope);left:20px;right:auto;transform:rotate(-8deg)}
+.judge{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.judge button{font:700 18px var(--f-body);border-radius:16px;padding:16px 0;cursor:pointer;border:2px solid}
+.judge .nope{background:var(--nope-soft);color:var(--nope);border-color:var(--nope)}
+.judge .like{background:var(--like-soft);color:var(--like);border-color:var(--like)}
+.judge kbd{font-family:var(--f-mono);font-size:12px;opacity:.7;margin-left:6px}
+.count{font-family:var(--f-display);font-size:96px;text-align:center;line-height:1.2}
+.result-main{display:flex;flex-direction:column;gap:12px;align-items:flex-start}
+.axis{display:grid;grid-template-columns:1fr;gap:8px;padding-top:28px}
+.axis-head{display:flex;justify-content:space-between;align-items:baseline;gap:8px;flex-wrap:wrap}
+.chip{font-size:12px;padding:2px 10px;border-radius:999px;background:var(--bg);border:1px solid var(--line)}
+.chip.edge{border-color:var(--like);color:var(--like)}
+.bar{height:6px;border-radius:3px;background:var(--line)}
+.bar i{display:block;height:100%;border-radius:3px;background:var(--ink)}
+svg.curve{width:100%;height:auto;display:block}
+details{font-size:13px}
+summary{cursor:pointer;color:var(--muted)}
+.logwrap{overflow-x:auto;margin-top:8px}
+table{border-collapse:collapse;font-family:var(--f-mono);font-size:12px;font-variant-numeric:tabular-nums;width:100%}
+th,td{padding:4px 10px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap}
+th{color:var(--muted);font-weight:500}
+td.l{color:var(--like)} td.n{color:var(--nope)} td.s{color:var(--muted)}
+.row{display:flex;gap:10px;flex-wrap:wrap}
+.btn.ghost{background:transparent;color:var(--ink);border:1px solid var(--line)}
+@media (prefers-reduced-motion: reduce){.card{transition:none}}
+</style>
+
+<div class="wrap" id="app">
+  <main id="view"></main>
+</div>
+
+<script>
+(() => {
+const R = { h:[140,200], a:[18,70], b:[16,45] };   // 身長cm, 年齢, 隠しBMI（学習では対数で扱う）
+/* 隠しパラメータBMI：画面には出さない。身長と体重の組み合わせを現実的にするために使う */
+function gauss(){let u=0,v=0;while(!u)u=Math.random();while(!v)v=Math.random();return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v);}
+// 令和5年国民健康・栄養調査 第14表の年代別平均身長（男性）
+const heightMean=a=>a<30?170.3:a<40?171.5:a<50?171.2:a<60?170.5:a<65?169.1:a<70?168.1:166.6;
+// 現実の分布：標準的な人が9割、肥満寄りが1割の混合
+const drawBMI=()=>Math.random()<0.9?22.6*Math.exp(0.13*gauss()):29*Math.exp(0.15*gauss());
+// 体型の4区分（候補の出し方だけに使う。判定・学習には区分を使わない）
+const BODY=[[16,19.5],[19.5,24],[24,28],[28,42]];   // 華奢・普通・がっしり・肥満
+const drawBody=k=>{const [lo,hi]=BODY[k];return Math.exp(rnd(Math.log(lo),Math.log(hi)));};
+const LIMIT = 3000, N = 32, STAGES = 3;   // 3ステージ×32人
+const view = document.getElementById('view');
+
+let state = { scene:0, round:[], log:[], model:null };
+
+const clamp=(x,lo,hi)=>Math.max(lo,Math.min(hi,x));
+const rnd=(lo,hi)=>lo+Math.random()*(hi-lo);
+const shuffle=a=>{for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;};
+function person(h,a,b){h=Math.round(h);a=Math.round(a);const w=Math.max(1,Math.round(b*(h/100)**2));return {h,w,a,_bmi:w/(h/100)**2};}
+const z=(v,[lo,hi])=>clamp((v-lo)/(hi-lo),0,1)*2-1;   // -1..1
+const zB=b=>z(Math.log(b),[Math.log(R.b[0]),Math.log(R.b[1])]);
+const NF=10;
+// 各項目の1次・2次＋組み合わせ（年齢×体型、身長×体型、身長×年齢）
+const feats=p=>{const zh=z(p.h,R.h),za=z(p.a,R.a),zb=zB(p._bmi);return [1,zh,zh*zh,za,za*za,zb,zb*zb,za*zb,zh*zb,zh*za];};
+
+/* ---------- ① 候補 ---------- */
+function scene1Candidates(){
+  const n=N/2;
+  const strat=([lo,hi])=>shuffle([...Array(n)].map((_,i)=>lo+(i+Math.random())/n*(hi-lo)));
+  // 25人：身長・年齢は全範囲から均等に、体型は4区分から均等に
+  const H=strat(R.h),A=strat(R.a);
+  const K=shuffle([...Array(n)].map((_,i)=>i%4));
+  const wide=H.map((h,i)=>person(h,A[i],drawBody(K[i])));
+  // 25人：現実の分布（平均的な人）
+  const real=[...Array(n)].map(()=>{let a;do{a=Math.round(49+18*gauss());}while(a<R.a[0]||a>R.a[1]);
+    return person(clamp(heightMean(a)+5.8*gauss(),R.h[0],R.h[1]),a,drawBMI());});
+  return shuffle([...wide,...real]);
+}
+
+/* ---------- 回答時間 → 重み ---------- */
+function weightFor(t, times, idx){
+  if(t==null) return 0;
+  if(t>LIMIT) return 0.2*(idx<3?0.7:1);        // 3秒を過ぎた判定は最も軽く
+  const base=clamp(1-t/LIMIT,0,1);              // 速いほど重い
+  const valid=times.filter(x=>x!=null).sort((x,y)=>x-y);
+  const med=valid.length?valid[Math.floor(valid.length/2)]:1500;
+  const rel=Math.sqrt(clamp(med/Math.max(t,150),0.6,1.6)); // 本人の平均より速いか
+  let w=clamp(0.2+0.8*base*rel,0.2,1);
+  if(idx<3) w*=0.7;                             // 最初の3人は慣れていないので軽く
+  return w;
+}
+
+/* ---------- 学習：重み付きロジスティック回帰 ---------- */
+function train(rows){
+  let beta=new Array(NF).fill(0); const lam=0.03, lr=0.6;
+  const data=rows.filter(r=>r.wt>0).map(r=>({x:feats(r.p),y:r.like?1:0,w:r.wt}));
+  if(!data.length) return beta;
+  // 好きが少ないときに埋もれないよう、好き側の重みを補正
+  const wl=data.filter(d=>d.y).reduce((s,d)=>s+d.w,0), wn=data.filter(d=>!d.y).reduce((s,d)=>s+d.w,0);
+  const boost=wl>0?clamp(wn/wl,1,6)*0.5+0.5:1;
+  data.forEach(d=>{if(d.y)d.w*=boost;});
+  const W=data.reduce((s,d)=>s+d.w,0);
+  for(let it=0;it<1500;it++){
+    const g=new Array(NF).fill(0);
+    for(const d of data){let s=0;for(let i=0;i<NF;i++)s+=d.x[i]*beta[i];const e=(1/(1+Math.exp(-s))-d.y)*d.w;for(let i=0;i<NF;i++)g[i]+=e*d.x[i];}
+    for(let i=0;i<NF;i++){beta[i]-=lr*(g[i]/W+(i?lam*beta[i]:0));}
+  }
+  return beta;
+}
+const logit=(beta,p)=>{const x=feats(p);let s=0;for(let i=0;i<NF;i++)s+=x[i]*beta[i];return s;};
+
+/* ---------- ③ 結果：全組み合わせから最高点 ---------- */
+// 隠しBMIは16.5〜42の間なら減点なし。外側だけ少しずつ減点して、現実離れした組み合わせを抑える
+const realism=b=>b<16.5?-Math.pow((16.5-b)/1.5,2):b>42?-Math.pow((b-42)/4,2):0;
+// 好き・嫌いと判定した人たちとの近さ（カーネル）を点数に足す。
+// 回帰だけだと、候補を見せていない範囲の端に結果が飛びやすいので、実際に好きと判定した人の近くを優先する
+const BW=0.18, KD=0.6;
+// 身長へのこだわりが弱いときに、結果が極端な身長に流れないよう平均身長へ軽く寄せる
+const HPRIOR=0.06;
+function kernelScore(p,rows){
+  const x=[z(p.h,R.h),z(p.a,R.a),zB(p._bmi)];let L=1e-4,D=1e-4;
+  for(const r of rows){if(!(r.wt>0))continue;const y=r._z||(r._z=[z(r.p.h,R.h),z(r.p.a,R.a),zB(r.p._bmi)]);
+    const d2=((x[0]-y[0])**2+(x[1]-y[1])**2+(x[2]-y[2])**2)/(BW*BW);if(d2>16)continue;const k=Math.exp(-0.5*d2)*r.wt;if(r.like)L+=k;else D+=k;}
+  return Math.log(L)-KD*Math.log(D);
+}
+function bestCombo(beta,rows){
+  rows=rows||weightedRows();
+  let best=null;
+  for(let h=R.h[0];h<=R.h[1];h++)for(let a=R.a[0];a<=R.a[1];a++)for(let b=15;b<=50;b+=0.5){
+    const w=Math.round(b*(h/100)**2);const p={h,w,a,_bmi:w/(h/100)**2};
+    const s=0.5*logit(beta,p)+realism(p._bmi)-HPRIOR*((h-heightMean(a))/5.8)**2;if(best&&s+3<best.s0)continue;   // 明らかに低い組み合わせは省く
+    const t=s+kernelScore(p,rows);if(!best||t>best.s)best={...p,s:t,s0:s};}
+  return best;
+}
+
+/* ---------- 項目ごとの形と重み（結果の組み合わせを基準に、他の項目を固定して見る） ---------- */
+const AX=[{k:'h',name:'身長',unit:'cm',r:R.h,low:'低いほど好き',high:'高いほど好き'},
+          {k:'a',name:'年齢',unit:'歳',r:R.a,low:'若いほど好き',high:'年上ほど好き'},
+          {k:'b',name:'体型',unit:'',r:R.b,low:'細いほど好き',high:'太いほど好き',ends:['BMI16','BMI45']}];
+function axisShape(beta,anchor){
+  const out=AX.map(ax=>{
+    const pts=[...Array(41)].map((_,j)=>{const zz=-1+j/20;const val=ax.k==='b'?Math.exp(Math.log(R.b[0])+(zz+1)/2*(Math.log(R.b[1])-Math.log(R.b[0]))):ax.r[0]+(zz+1)/2*(ax.r[1]-ax.r[0]);
+      const p={h:anchor.h,a:anchor.a,_bmi:anchor._bmi};p[ax.k==='b'?'_bmi':ax.k]=val;return {zz,val,v:logit(beta,p)};});
+    const vs=pts.map(p=>p.v);const amp=Math.max(...vs)-Math.min(...vs);
+    const best=pts.reduce((m,p)=>p.v>m.v?p:m);
+    let type='center',label=ax.k==='b'?`BMI${best.val.toFixed(0)}前後が好き`:`${Math.round(best.val)}${ax.unit}前後が好き`;
+    if(best.zz<=-0.8){type='edge';label=ax.low;} else if(best.zz>=0.8){type='edge';label=ax.high;}
+    if(amp<0.4){type='weak';label='こだわり弱め';}
+    return {...ax,pts,amp,peak:best.val,type,label};
+  });
+  const sum=out.reduce((s,a)=>s+a.amp,0)||1;
+  out.forEach(a=>a.share=a.amp/sum);
+  return out;
+}
+
+/* ---------- ② 候補：好きになりそうな確率で抽選＋探索枠 ---------- */
+function scene2Candidates(beta){
+  const anchor=bestCombo(beta);const shape=axisShape(beta,anchor);
+  const pool=[...Array(6000)].map((_,i)=>person(rnd(...R.h),rnd(...R.a),i%2?drawBMI():drawBody(i%8>>1)));
+  const liked=state.log.filter(r=>r.like===true);
+  if(liked.length){
+    if(state.scene===STAGES){
+      // K案：最終ステージは、最終結果と同じ採点（回帰＋好きと判定した数字との近さ）で候補を選ぶ
+      const rows=weightedRows();
+      pool.forEach(p=>{p._s=0.5*logit(beta,p)+realism(p._bmi)+kernelScore(p,rows);});
+      const mx=Math.max(...pool.map(p=>p._s));
+      pool.forEach(p=>{p._w=Math.exp(p._s-mx)+1e-9;});
+    }else pool.forEach(p=>{p._w=Math.pow(1/(1+Math.exp(-logit(beta,p))),3)+1e-6;});
+  }else{
+    // ①で好きが0人：嫌いと判定した人たちから離れた組み合わせほど出やすくする
+    const pos=p=>[z(p.h,R.h),z(p.a,R.a),zB(p._bmi)];
+    const dis=state.log.filter(r=>r.like===false).map(r=>pos(r.p));
+    pool.forEach(p=>{const x=pos(p);const d=Math.min(...dis.map(y=>Math.hypot(x[0]-y[0],x[1]-y[1],x[2]-y[2])));p._w=Math.pow(d,4)+1e-6;});
+  }
+  const nE=Math.round(N*0.16),nW=Math.round(N*0.08);   // 探索枠：端寄り約16%＋全範囲約8%（32人なら5人＋3人）
+  const pick=[];const nExploit=N-nE-nW;
+  for(let k=0;k<nExploit;k++){const tot=pool.reduce((s,p)=>s+p._w,0);let r=Math.random()*tot;let idx=0;for(;idx<pool.length;idx++){r-=pool[idx]._w;if(r<=0)break;}pick.push(pool.splice(Math.min(idx,pool.length-1),1)[0]);}
+  // 探索枠：範囲の端寄り（好みの向きが分かっていればその側、未確定なら左右どちらか）
+  const near=(k)=>{const s=shape.find(x=>x.k===k);
+    const lg=k==='b';const lo=lg?Math.log(s.r[0]):s.r[0],hi=lg?Math.log(s.r[1]):s.r[1],span=hi-lo;
+    const out=v=>lg?Math.exp(v):v;
+    const side=lowSide=>out(lowSide?rnd(lo,lo+span*0.15):rnd(hi-span*0.15,hi));
+    if(s.type==='edge')return side(s.label===s.low);
+    if(s.type==='weak')return side(Math.random()<0.5);
+    const pk=lg?Math.log(s.peak):s.peak;return out(clamp(pk+rnd(-0.15,0.15)*span,lo,hi));};
+  for(let k=0;k<nE;k++){const p=person(near('h'),near('a'),near('b'));p._explore='edge';pick.push(p);}
+  for(let k=0;k<nW;k++){const p=person(rnd(...R.h),rnd(...R.a),drawBody(k%4));p._explore='wide';pick.push(p);}
+  return shuffle(pick);
+}
+
+/* ---------- 検証用：画面を使わずに通しで判定させる ---------- */
+window.__simulate=(likeFn,noise=0,test=null)=>{
+  const saved=state;state={scene:1,round:[],log:[],model:null};
+  const judge=(sc,list)=>list.forEach((p,idx)=>{let like=!!likeFn(p);if(Math.random()<noise)like=!like;state.log.push({scene:sc,idx,p,like,t:like?500+Math.random()*500:900+Math.random()*900});});
+  for(let sc=1;sc<=STAGES;sc++){state.scene=sc;judge(sc,sc===1?scene1Candidates():scene2Candidates(state.model));state.model=train(weightedRows());}
+  const rows=weightedRows();const has=state.log.some(r=>r.like);let best=null,auc=null;
+  if(has){best=bestCombo(state.model,rows);
+    if(test){const sc=p=>0.5*logit(state.model,p)+realism(p._bmi)-HPRIOR*((p.h-heightMean(p.a))/5.8)**2+kernelScore(p,rows);
+      const P=[],Q=[];test.forEach(t=>{const p={h:t[0],a:t[1],_bmi:t[2]};(likeFn(p)?P:Q).push(sc(p));});
+      let c=0,n=0;for(const a of P)for(const b of Q){n++;c+=a>b?1:a===b?0.5:0;}auc=n?c/n:null;}}
+  state=saved;return {best,auc};
+};
+
+
+/* ---------- 効果音（Web Audioでその場で作る） ---------- */
+let actx=null;
+function audio(){
+  try{ if(!actx){const C=window.AudioContext||window.webkitAudioContext;if(!C)return null;actx=new C();}
+    if(actx.state==='suspended')actx.resume(); return actx; }catch(e){return null;}
+}
+function noise(ctx,dur){const n=Math.ceil(ctx.sampleRate*dur);const buf=ctx.createBuffer(1,n,ctx.sampleRate);const d=buf.getChannelData(0);for(let i=0;i<n;i++)d[i]=Math.random()*2-1;const src=ctx.createBufferSource();src.buffer=buf;return src;}
+// スワイプ音「しゅっ」：ノイズを帯域フィルタで高→低に掃く
+function sfxSwipe(){
+  const ctx=audio();if(!ctx)return;const t=ctx.currentTime,dur=0.2;
+  const src=noise(ctx,dur),bp=ctx.createBiquadFilter(),g=ctx.createGain();
+  bp.type='bandpass';bp.Q.value=1.2;bp.frequency.setValueAtTime(5200,t);bp.frequency.exponentialRampToValueAtTime(1400,t+dur);
+  g.gain.setValueAtTime(0.0001,t);g.gain.exponentialRampToValueAtTime(0.5,t+0.03);g.gain.exponentialRampToValueAtTime(0.0001,t+dur);
+  src.connect(bp).connect(g).connect(ctx.destination);src.start(t);src.stop(t+dur);
+}
+// カウントダウン音「ピッ」「ピーン」：澄んだ電子音
+function sfxBeep(long){
+  const ctx=audio();if(!ctx)return;const t=ctx.currentTime,dur=long?0.6:0.09;
+  const o=ctx.createOscillator(),g=ctx.createGain();o.type='sine';o.frequency.value=long?1760:880;
+  g.gain.setValueAtTime(0.0001,t);g.gain.exponentialRampToValueAtTime(0.35,t+0.005);
+  if(long){g.gain.setValueAtTime(0.35,t+0.08);}
+  g.gain.exponentialRampToValueAtTime(0.0001,t+dur);
+  o.connect(g).connect(ctx.destination);o.start(t);o.stop(t+dur+0.02);
+}
+// 制限時間中の「チッ」：ごく短い高域のクリック
+function sfxTick(){
+  const ctx=audio();if(!ctx)return;const t=ctx.currentTime,dur=0.035;
+  const src=noise(ctx,dur),hp=ctx.createBiquadFilter(),g=ctx.createGain();
+  hp.type='highpass';hp.frequency.value=3500;
+  g.gain.setValueAtTime(0.075,t);g.gain.exponentialRampToValueAtTime(0.0001,t+dur);
+  src.connect(hp).connect(g).connect(ctx.destination);src.start(t);src.stop(t+dur);
+}
+
+// ドラムロール：回転中の「カラカラ」、止まる「カン」、発表の「ジャーン」
+function sfxRoll(){
+  const ctx=audio();if(!ctx)return;const t=ctx.currentTime,dur=0.03;
+  const o=ctx.createOscillator(),g=ctx.createGain();o.type='square';o.frequency.value=1200+Math.random()*400;
+  g.gain.setValueAtTime(0.04,t);g.gain.exponentialRampToValueAtTime(0.0001,t+dur);
+  o.connect(g).connect(ctx.destination);o.start(t);o.stop(t+dur+0.01);
+}
+function sfxStop(){
+  const ctx=audio();if(!ctx)return;const t=ctx.currentTime,dur=0.18;
+  const o=ctx.createOscillator(),g=ctx.createGain();o.type='triangle';o.frequency.setValueAtTime(660,t);o.frequency.exponentialRampToValueAtTime(330,t+dur);
+  g.gain.setValueAtTime(0.35,t);g.gain.exponentialRampToValueAtTime(0.0001,t+dur);
+  o.connect(g).connect(ctx.destination);o.start(t);o.stop(t+dur+0.02);
+}
+function sfxWin(){
+  const ctx=audio();if(!ctx)return;const t=ctx.currentTime;
+  [523.25,659.25,783.99,1046.5].forEach((f,i)=>{const o=ctx.createOscillator(),g=ctx.createGain();o.type='triangle';o.frequency.value=f;
+    const st=t+i*0.09,dur=i===3?0.9:0.25;g.gain.setValueAtTime(0.0001,st);g.gain.exponentialRampToValueAtTime(0.25,st+0.01);g.gain.exponentialRampToValueAtTime(0.0001,st+dur);
+    o.connect(g).connect(ctx.destination);o.start(st);o.stop(st+dur+0.02);});
+}
+
+// 操作音「カチャ」：ごく弱い2連のクリック
+function sfxClick(){
+  const ctx=audio();if(!ctx)return;const t=ctx.currentTime;
+  [0,0.028].forEach((d,i)=>{const src=noise(ctx,0.02),bp=ctx.createBiquadFilter(),g=ctx.createGain();
+    bp.type='bandpass';bp.frequency.value=i?2200:3200;bp.Q.value=2;
+    g.gain.setValueAtTime(i?0.05:0.07,t+d);g.gain.exponentialRampToValueAtTime(0.0001,t+d+0.02);
+    src.connect(bp).connect(g).connect(ctx.destination);src.start(t+d);src.stop(t+d+0.025);});
+}
+// 「あり」「なし」以外の、押せるもの全部（ボタン・リンク・詳細の開閉）で鳴らす
+document.addEventListener('click',e=>{const el=e.target.closest('button,a,summary');if(!el||el.id==='bl'||el.id==='bn')return;sfxClick();});
+
+/* ---------- 画面 ---------- */
+function intro(){
+  state={scene:0,round:[],log:[],model:null};
+  
+  view.innerHTML=`<section class="panel">
+    <div class="logo-wrap"><h1 class="logo">魔法の数字</h1></div>
+    <div class="row" style="justify-content:center"><button class="btn ghost" id="howBtn" aria-expanded="false" aria-controls="how">あそびかた</button><button class="btn" id="start">はじめる</button></div>
+    <div id="how" hidden>
+      <div style="display:flex;flex-direction:column;gap:12px;border-top:1px solid var(--line);padding-top:14px">
+        <p>画面に表示される「魔法の数字」を、制限時間内に「あり」か「なし」で判定してください。制限時間をオーバーすると、自動的に次の数字に進みます。</p>
+        <p>【操作】キーボードの ← →、または左右にスワイプ。</p>
+      </div>
+    </div>
+  </section>`;
+  const how=document.getElementById('how'),howBtn=document.getElementById('howBtn');
+  howBtn.onclick=()=>{how.hidden=!how.hidden;howBtn.setAttribute('aria-expanded',String(!how.hidden));};
+  document.getElementById('start').onclick=()=>{audio();startScene(1);};
+}
+
+function startScene(n){
+  state.scene=n;
+  state.round=n===1?scene1Candidates():scene2Candidates(state.model);
+  let c=3;
+  view.innerHTML=`<section class="panel" style="align-items:center;text-align:center"><p class="muted">第${n}ステージ　まもなく開始</p><div class="count" id="cd">3</div></section>`;
+  sfxBeep(false);
+  const t=setInterval(()=>{c--;if(c<=0){clearInterval(t);sfxBeep(true);runCards(0);}else{document.getElementById('cd').textContent=c;sfxBeep(false);}},700);
+}
+
+let tick=null,keyHandler=null,ticker=null;
+function runCards(i){
+  if(i>=N) return finishScene();
+  const p=state.round[i];
+  view.innerHTML=`<div style="display:flex;flex-direction:column;gap:14px">
+    <article class="card" id="card">
+      <div class="progress">${i+1}/${N}</div>
+      <div class="stamp l" id="sl">あり</div><div class="stamp n" id="sn">なし</div>
+      <div class="timer"><i id="bar"></i></div>
+      <div class="magic">${p.h}<span class="sl"><svg viewBox="0 0 10 20" preserveAspectRatio="none" aria-hidden="true"><line x1="0" y1="20" x2="10" y2="0" stroke="currentColor" stroke-width="1" vector-effect="non-scaling-stroke"/></svg><i>/</i></span>${p.w}<span class="sl"><svg viewBox="0 0 10 20" preserveAspectRatio="none" aria-hidden="true"><line x1="0" y1="20" x2="10" y2="0" stroke="currentColor" stroke-width="1" vector-effect="non-scaling-stroke"/></svg><i>/</i></span>${p.a}</div>
+    </article>
+    <div class="judge"><button class="nope" id="bn">なし<kbd>←</kbd></button><button class="like" id="bl">あり<kbd>→</kbd></button></div></div>`;
+  const t0=performance.now();let done=false;
+  const bar=document.getElementById('bar'),card=document.getElementById('card');
+  const answer=(like)=>{
+    if(done)return;done=true;cancelAnimationFrame(tick);document.removeEventListener('keydown',keyHandler);
+    clearInterval(ticker);
+    if(like!=null)sfxSwipe();
+    const t=like==null?null:performance.now()-t0;
+    state.log.push({scene:state.scene,idx:i,p,like,t});
+    card.classList.add(like==null?'go-skip':like?'go-like':'go-nope');
+    setTimeout(()=>runCards(i+1),200);
+  };
+  const loop=()=>{const el=performance.now()-t0;const r=clamp(1-el/LIMIT,0,1);bar.style.transform=`scaleX(${r})`;
+    if(el>=LIMIT)return answer(null);   // 制限時間を超えたら判定は無効にして次へ
+    tick=requestAnimationFrame(loop);};
+  tick=requestAnimationFrame(loop);
+  // 制限時間中は秒間4回「チッ」を鳴らす
+  clearInterval(ticker);sfxTick();
+  ticker=setInterval(()=>{if(done||performance.now()-t0>=LIMIT){clearInterval(ticker);return;}sfxTick();},250);
+  document.getElementById('bl').onclick=()=>answer(true);
+  document.getElementById('bn').onclick=()=>answer(false);
+  keyHandler=e=>{if(e.key==='ArrowRight')answer(true);if(e.key==='ArrowLeft')answer(false);};
+  document.addEventListener('keydown',keyHandler);
+  let sx=null;
+  card.addEventListener('pointerdown',e=>{sx=e.clientX;card.setPointerCapture(e.pointerId);});
+  card.addEventListener('pointermove',e=>{if(sx==null)return;const dx=e.clientX-sx;card.style.transform=`translateX(${dx}px) rotate(${dx/20}deg)`;document.getElementById('sl').style.opacity=clamp(dx/80,0,1);document.getElementById('sn').style.opacity=clamp(-dx/80,0,1);});
+  card.addEventListener('pointerup',e=>{if(sx==null)return;const dx=e.clientX-sx;sx=null;card.style.transform='';if(dx>80)answer(true);else if(dx<-80)answer(false);else{document.getElementById('sl').style.opacity=0;document.getElementById('sn').style.opacity=0;}});
+}
+
+function weightedRows(){
+  const times=state.log.map(r=>r.t);
+  const rows=state.log.map(r=>{const inScene=state.log.filter(x=>x.scene===r.scene).indexOf(r);
+    const w=weightFor(r.t,times,inScene)*(r.scene>=2?1.5:1);return {...r,wt:w};});
+  // 改善案G：押し間違え対策。近くの判定と食い違う判定（周りが「なし」ばかりの「あり」など）ほど軽く扱う
+  const pos=r=>r._z||(r._z=[z(r.p.h,R.h),z(r.p.a,R.a),zB(r.p._bmi)]);
+  const BG=0.3;
+  const agree=rows.map(r=>{if(!(r.wt>0))return 1;const x=pos(r);let same=0.4,diff=0.4;   // 近くに誰もいなければ中立
+    for(const o of rows){if(o===r||!(o.wt>0))continue;const y=pos(o);const d2=((x[0]-y[0])**2+(x[1]-y[1])**2+(x[2]-y[2])**2)/(BG*BG);if(d2>9)continue;
+      const k=Math.exp(-0.5*d2)*o.wt;if(o.like===r.like)same+=k;else diff+=k;}
+    return same/(same+diff);});
+  rows.forEach((r,i)=>{if(r.wt>0)r.wt*=clamp(0.15+1.7*agree[i]*agree[i],0.15,1);});
+  return rows;
+}
+
+function finishScene(){
+  const rows=weightedRows();
+  state.model=train(rows);
+  const cur=state.log.filter(r=>r.scene===state.scene);
+  const nl=cur.filter(r=>r.like===true).length,nn=cur.filter(r=>r.like===false).length,ns=cur.filter(r=>r.like==null).length;
+  if(state.scene<STAGES){
+    const n=state.scene;
+    view.innerHTML=`<section class="panel" style="align-items:center;text-align:center">
+      <h2>第${n}ステージ終了</h2>
+      <p class="muted">${n===1?'第1ステージ':`第${n}ステージまで`}の判定をもとに、「魔法の数字」をカスタマイズします。</p>
+      <div><button class="btn" id="next">第${n+1}ステージ開始</button></div></section>`;
+    document.getElementById('next').onclick=()=>startScene(n+1);
+  } else showResult(rows);
+}
+
+function curveSVG(ax,mark){
+  const W=300,H=64,pad=6;const vs=ax.pts.map(p=>p.v);const mn=Math.min(...vs),mx=Math.max(...vs),mid=(mn+mx)/2,half=((mx-mn)/2)||1;
+  // 好みの強さをS字に変換して描く（大小の順序はそのまま、直線に見えないようにする）
+  const S=v=>1/(1+Math.exp(-3.2*(v-mid)/half));const s0=S(mn),s1=S(mx),ss=(s1-s0)||1;
+  const lab=i=>ax.ends?ax.ends[i]:ax.r[i]+ax.unit;
+  const X=zz=>pad+(zz+1)/2*(W-2*pad),Y=v=>H-pad-(S(v)-s0)/ss*(H-2*pad-10);
+  const P=ax.pts.map(p=>[X(p.zz),Y(p.v)]);
+  // 点を滑らかな曲線（3次ベジェ）でつなぐ
+  let d=`M${P[0][0].toFixed(1)},${P[0][1].toFixed(1)}`;
+  for(let j=0;j<P.length-1;j++){const p0=P[Math.max(0,j-1)],p1=P[j],p2=P[j+1],p3=P[Math.min(P.length-1,j+2)];
+    const c1=[p1[0]+(p2[0]-p0[0])/6,p1[1]+(p2[1]-p0[1])/6],c2=[p2[0]-(p3[0]-p1[0])/6,p2[1]-(p3[1]-p1[1])/6];
+    d+=`C${c1[0].toFixed(1)},${c1[1].toFixed(1)} ${c2[0].toFixed(1)},${c2[1].toFixed(1)} ${p2[0].toFixed(1)},${p2[1].toFixed(1)}`;}
+  const mz=ax.k==='b'?zB(mark):z(mark,ax.r);const mv=ax.pts.reduce((m,p)=>Math.abs(p.zz-mz)<Math.abs(m.zz-mz)?p:m).v;
+  return `<svg class="curve" viewBox="0 0 ${W} ${H+14}" role="img" aria-label="${ax.name}の好みの曲線">
+    <path d="${d}" fill="none" stroke="var(--ink)" stroke-width="2"/>
+    <circle cx="${X(mz)}" cy="${Y(mv)}" r="5" fill="var(--like)"/>
+    <text x="${pad}" y="${H+12}" font-size="11" fill="var(--muted)" font-family="IBM Plex Mono,monospace">${lab(0)}</text>
+    <text x="${W-pad}" y="${H+12}" font-size="11" fill="var(--muted)" text-anchor="end" font-family="IBM Plex Mono,monospace">${lab(1)}</text>
+  </svg>`;
+}
+
+function showResult(rows){
+  if(!rows.some(r=>r.like===true)){
+    view.innerHTML=`<section class="panel"><h2>好みの数字が見つかりませんでした</h2><p>${N*STAGES}人全員を「なし」と判定したため、好みを推定できません。もう一度遊ぶと、別の${N}人から始まります。</p><div><button class="btn" id="again">もう一度遊ぶ</button></div></section>`;
+    document.getElementById('again').onclick=intro;return;
+  }
+  const best=bestCombo(state.model,rows);const sh=axisShape(state.model,best);
+  const val={h:best.h,a:best.a,b:best._bmi};
+  const order=[...sh].sort((x,y)=>y.share-x.share);
+  const log=rows.map(r=>`<tr><td>${'①②③'[r.scene-1]}${String(r.idx+1).padStart(2,'0')}</td><td>${r.p.h}</td><td>${r.p.w}</td><td>${r.p.a}</td><td>${r.p._bmi.toFixed(1)}</td>
+    <td class="${r.like==null?'s':r.like?'l':'n'}">${r.like==null?'無効':r.like?'あり':'なし'}</td><td>${r.t==null?'—':(r.t/1000).toFixed(2)}</td></tr>`).join('');
+  view.innerHTML=`<div style="display:flex;flex-direction:column;gap:16px">
+  <section class="panel result-main">
+    <p class="muted" style="text-align:center;width:100%">あなたが好きな「魔法の数字」</p>
+    <div class="magic" id="reels"><span class="reel" id="r0">${best.h}</span><span class="sl"><svg viewBox="0 0 10 20" preserveAspectRatio="none" aria-hidden="true"><line x1="0" y1="20" x2="10" y2="0" stroke="currentColor" stroke-width="1" vector-effect="non-scaling-stroke"/></svg><i>/</i></span><span class="reel" id="r1">${best.w}</span><span class="sl"><svg viewBox="0 0 10 20" preserveAspectRatio="none" aria-hidden="true"><line x1="0" y1="20" x2="10" y2="0" stroke="currentColor" stroke-width="1" vector-effect="non-scaling-stroke"/></svg><i>/</i></span><span class="reel" id="r2">${best.a}</span></div>
+  </section>
+  <details class="panel" id="detail" hidden><summary>詳細</summary>
+    <p class="muted" style="font-size:13px;margin-bottom:20px">数字は「身長（cm）/体重（kg）/年齢（才）」。体型は隠しパラメータのBMIで判定しています。</p>
+    <h2>あなたが好む数字の傾向<small style="font-size:12px;font-weight:400;color:var(--muted);margin-left:4px">（重視度順）</small></h2>
+    ${order.map(s=>`<div class="axis">
+      <div class="axis-head"><span>${s.name}：${s.label}</span><span class="muted" style="font-family:var(--f-mono)">重視度：${Math.round(s.share*100)}%</span></div>
+      ${curveSVG(s,val[s.k])}
+    </div>`).join('')}
+    <h2 style="margin-top:28px">判定ログ</h2>
+    <div class="logwrap"><table><thead><tr><th>No.</th><th>身長</th><th>体重</th><th>年齢</th><th>BMI</th><th>判定</th><th>秒</th></tr></thead><tbody>${log}</tbody></table></div>
+  </details>
+  <div class="row" id="afterRow" hidden style="justify-content:center"><a class="btn" id="shareX" href="https://twitter.com/intent/tweet?text=${encodeURIComponent(`私が好きな「魔法の数字」は ${best.h}/${best.w}/${best.a} でした。`)}" target="_blank" rel="noopener">Xで共有</a><button class="btn ghost" id="again">もう一度遊ぶ</button></div></div>`;
+  document.getElementById('again').onclick=intro;
+  drumroll([best.h,best.w,best.a],()=>{document.getElementById('detail').hidden=false;document.getElementById('afterRow').hidden=false;});
+}
+
+/* ---------- 結果発表のドラムロール ---------- */
+function drumroll(vals,done){
+  const els=[0,1,2].map(i=>document.getElementById('r'+i));
+  const reduce=window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if(reduce){sfxWin();done();return;}
+  // 回転中も最終値と同じ桁数の数字を出して、桁が変わって横幅がずれないようにする
+  const ranges=vals.map((v,i)=>{const lim=[[140,200],[30,150],[18,70]][i];const d=String(v).length;return [Math.max(lim[0],10**(d-1)),Math.min(lim[1],10**d-1)];});
+  const stopAt=[1100,1600,2100];const t0=performance.now();const stopped=[false,false,false];
+  els.forEach(e=>e.classList.add('spin'));
+  const iv=setInterval(()=>{
+    const el=performance.now()-t0;let spinning=false;
+    els.forEach((e,i)=>{if(stopped[i])return;
+      if(el>=stopAt[i]){stopped[i]=true;e.textContent=vals[i];e.classList.remove('spin');e.classList.add('stop');sfxStop();return;}
+      spinning=true;const [lo,hi]=ranges[i];e.textContent=Math.floor(lo+Math.random()*(hi-lo+1));});
+    if(spinning)sfxRoll();
+    if(stopped.every(Boolean)){clearInterval(iv);setTimeout(()=>{sfxWin();done();},250);}
+  },70);
+}
+
+intro();
+})();
+</script>
+
+</body></html>
