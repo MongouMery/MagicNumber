@@ -8,7 +8,7 @@
 :root{
   --bg:#eef0f4; --surface:#ffffff; --ink:#1d2230; --muted:#677087; --line:#d6dae3;
   --hand-filter:brightness(0) opacity(.78);
-  --dot-off:#d6dae3; --dot-on:#4a5162;
+  --dot-off:#d6dae3; --dot-on:#4a5162; --spark:#3b4252;
   --stamp-like:#d63a50; --stamp-nope:#2f63b0;   /* 白文字との差を十分にとった色。ライト・ダーク共通 */
   --like:#e0475b; --like-soft:#fbe3e6; --nope:#3f6fb5; --nope-soft:#e1eaf7; --warn:#c98a12;
   --f-display:"Dela Gothic One","Hiragino Kaku Gothic StdN",sans-serif;
@@ -19,12 +19,12 @@
 @media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
   --bg:#13161e; --surface:#1d212c; --ink:#e9ecf3; --muted:#9aa2b6; --line:#2e3442;
   --hand-filter:none;
-  --dot-off:#2e3442; --dot-on:#aab1c2;
+  --dot-off:#2e3442; --dot-on:#aab1c2; --spark:#eef0f5;
   --like:#f06878; --like-soft:#3a1f26; --nope:#6f9be0; --nope-soft:#1d2a40; --warn:#e2a93a; color-scheme:dark}}
 :root[data-theme="dark"]{
   --bg:#13161e; --surface:#1d212c; --ink:#e9ecf3; --muted:#9aa2b6; --line:#2e3442;
   --hand-filter:none;
-  --dot-off:#2e3442; --dot-on:#aab1c2;
+  --dot-off:#2e3442; --dot-on:#aab1c2; --spark:#eef0f5;
   --like:#f06878; --like-soft:#3a1f26; --nope:#6f9be0; --nope-soft:#1d2a40; --warn:#e2a93a; color-scheme:dark}
 html,body{height:100%}
 /* 縦スクロールバーが出ても中身が左右にずれないよう、スクロールバーの幅を常に確保する */
@@ -60,14 +60,22 @@ html.playing,html.playing body{overflow-x:clip;touch-action:none;overscroll-beha
 .card.go-like{transform:translateX(40%) rotate(8deg);opacity:0}
 .card.go-nope{transform:translateX(-40%) rotate(-8deg);opacity:0}
 .card.go-skip{transform:translateY(16px);opacity:0}
-.timer{width:90%;margin-inline:auto;height:6px;border-radius:3px;background:var(--line);overflow:hidden}   /* 時間経過バー：カード幅いっぱいの90%で中央に置く */
-.timer i{display:block;height:100%;width:100%;background:var(--ink);transform-origin:left;transform:scaleX(1)}
+.timer{width:90%;margin-inline:auto;height:6px;display:flex;gap:2px;border-radius:3px;overflow:hidden}   /* 時間経過バー：1秒ごとに区切る。3秒ならカード幅の90%、2秒なら60%で中央に置く */
+.timer i{flex:1;background:var(--line);overflow:hidden}   /* 区切りは角を丸めず、まっすぐな縦線に見せる */
+.timer b{display:block;height:100%;background:var(--ink);transform-origin:left;transform:scaleX(1)}
+.timer.low b{background:var(--like)}   /* 残り1秒を切ったら赤 */
 .magic{font-family:var(--f-num);font-weight:900;font-size:min(62px,15.5cqi);line-height:1.15;letter-spacing:.01em;font-variant-numeric:tabular-nums;text-align:center;padding-block:18px 10px;white-space:nowrap}
 [hidden]{display:none!important}
 .card,.result-main{container-type:inline-size}
 .card .magic{padding-block:0}
 .reel{display:inline-block;text-align:center}
 .wv{display:inline-block}
+/* ファンファーレと同時に、数字のまわりで菱形の星がまたたく演出 */
+.magic{position:relative}
+.spark{position:absolute;width:var(--sz);height:var(--sz);margin:calc(var(--sz)/-2) 0 0 calc(var(--sz)/-2);pointer-events:none;color:var(--spark);opacity:0;animation:burst var(--dur) cubic-bezier(.15,.7,.3,1) var(--delay) both}
+.spark svg{display:block;width:100%;height:100%}
+/* 数字のあたりから外へ放射状に飛び散りながら、小さくなって消える（回転はしない） */
+@keyframes burst{0%{opacity:0;transform:translate(0,0) scale(.3)}12%{opacity:1;transform:translate(calc(var(--dx)*.15),calc(var(--dy)*.15)) scale(1)}100%{opacity:0;transform:translate(var(--dx),var(--dy)) scale(.35)}}
 @keyframes wave{0%{transform:translateY(0)}35%{transform:translateY(-.3em)}68%{transform:translateY(.05em)}100%{transform:translateY(0)}}
 .reel.spin{filter:blur(1.2px);opacity:.75}
 .reel.stop{animation:reelstop .22s ease-out}
@@ -105,9 +113,10 @@ html.playing,html.playing body{overflow-x:clip;touch-action:none;overscroll-beha
 .hand-anim{position:relative;width:min(260px,100%);height:110px;overflow:hidden;filter:var(--hand-filter)}
 .hand-anim>div[hidden]{display:none}
 .hand-anim>div{position:absolute;left:50%;top:50%;width:290px;height:242px;transform:translate(-50%,-50%)}
-.result-main{display:flex;flex-direction:column;gap:12px;align-items:flex-start}
+.result-main{display:flex;flex-direction:column;gap:12px;align-items:flex-start;overflow:hidden}   /* 飛び散る星が枠の外にはみ出さないようにする */
 .axis{display:grid;grid-template-columns:1fr;gap:8px;padding-top:28px}
-.axis+.axis{margin-top:20px}   /* 身長・年齢・体型の各まとまりの間を広げる */
+.axis+.axis{margin-top:20px}
+.axis.top .axis-head span{color:var(--like);font-weight:700}   /* こだわり度がいちばん高い項目は、項目名・好み・こだわり度をまとめて赤の太字に */   /* 身長・年齢・体型の各まとまりの間を広げる */
 .axis-head{display:flex;justify-content:space-between;align-items:baseline;gap:8px;flex-wrap:wrap}
 .chip{font-size:12px;padding:2px 10px;border-radius:999px;background:var(--bg);border:1px solid var(--line)}
 .chip.edge{border-color:var(--like);color:var(--like)}
@@ -123,6 +132,17 @@ th,td{padding:4px 10px;border-bottom:1px solid var(--line);text-align:right;whit
 th{color:var(--muted);font-weight:500}
 table.top5 th,table.top5 td{text-align:center}
 table.top5 tr.first td{color:var(--like);font-weight:700}   /* 1位（同順位の1位も含む）は太字の赤 */
+.numwrap{position:relative}
+.axis-head .share{position:relative;text-align:left}
+.axis.top .axis-head .share{font-weight:400}
+.axis.top .axis-head .share .pct{font-weight:700}   /* 王冠付きのときは数値（◯%）だけ太字 */   /* 王冠付きのこだわり度は赤のみ。太字にせず、王冠なしの項目と同じ文字の形・位置にする */
+.axis-head .share .crown{position:absolute;right:100%;top:50%;transform:translateY(-55%);margin-right:calc(3px - 1.15em*2.5/24)}   /* 王冠は文字の左にはみ出させ、こだわり度の文字の位置は王冠なしの項目とそろえる */
+.numwrap .crown{position:absolute;right:100%;top:50%;transform:translateY(-55%);margin-right:.3em}   /* 王冠は数字の左にはみ出させ、数字の位置は王冠なしの行とそろえる */
+.crown{display:inline-block;width:1.15em;height:1.15em;vertical-align:-.2em;margin-right:.3em;color:var(--like)}   /* 1位の王冠（赤） */
+.cd-label{display:flex;flex-direction:column;align-items:center;gap:2px}
+.cd-limit{font-size:19px;color:var(--ink);font-weight:700}   /* 「制限時間◯秒」全体を黒の太字に */
+.cd-limit b{font-weight:inherit}
+.cd-limit.short{color:var(--like)}   /* 第3ステージの2秒は下線ごと赤 */
 .dash-u{text-decoration:underline dashed;text-decoration-thickness:1px;text-underline-offset:6px}
 /* ステージ終了画面の3段階プログレスバー */
 .stagebar{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;width:min(240px,100%)}
@@ -134,6 +154,9 @@ table.top5 tr.first td{color:var(--like);font-weight:700}   /* 1位（同順位�
 td.l{color:var(--like)} td.n{color:var(--nope)} td.s{color:var(--muted)}
 .row{display:flex;gap:10px;flex-wrap:wrap}
 .btn.ghost{background:transparent;color:var(--ink);border:1px solid var(--line)}
+/* 結果画面の2つのボタンが狭い画面でも1行に収まるように、余白（と最も狭い画面では文字）を少し詰める */
+@media (max-width:374px){#afterRow .btn{padding-inline:16px}}
+@media (max-width:339px){#afterRow .btn{font-size:14px;padding:13px 14px}}
 @media (prefers-reduced-motion: reduce){.card{transition:none}}
 </style>
 
@@ -144,17 +167,19 @@ td.l{color:var(--like)} td.n{color:var(--nope)} td.s{color:var(--muted)}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/lottie-web/5.12.2/lottie.min.js"></script>
 <script>
 (() => {
-const R = { h:[140,200], a:[18,75], b:[16,45] };   // 身長cm, 年齢, 隠しBMI（学習では対数で扱う）
+const R = { h:[140,200], a:[18,75], b:[15,50] };   // 身長cm, 年齢, 隠しBMI（学習では対数で扱う）
 /* 隠しパラメータBMI：画面には出さない。身長と体重の組み合わせを現実的にするために使う */
 function gauss(){let u=0,v=0;while(!u)u=Math.random();while(!v)v=Math.random();return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v);}
 // 令和5年国民健康・栄養調査 第14表の年代別平均身長（男性）
 const heightMean=a=>a<30?170.3:a<40?171.5:a<50?171.2:a<60?170.5:a<65?169.1:a<70?168.1:a<75?166.6:164.5;
-// 現実の分布：標準的な人が9割、肥満寄りが1割の混合
-const drawBMI=()=>Math.random()<0.9?22.6*Math.exp(0.13*gauss()):29*Math.exp(0.15*gauss());
+// 現実の分布：標準的な人が9割、肥満寄りが1割の混合（グラフの表示範囲15〜50の外は出さない）
+const drawBMI=()=>clamp(Math.random()<0.9?22.6*Math.exp(0.13*gauss()):29*Math.exp(0.15*gauss()),R.b[0],R.b[1]);
 // 体型の4区分（候補の出し方だけに使う。判定・学習には区分を使わない）
-const BODY=[[16,19.5],[19.5,24],[24,28],[28,42]];   // 華奢・普通・がっしり・肥満
+const BODY=[[R.b[0],19.5],[19.5,24],[24,28],[28,R.b[1]]];   // 華奢・普通・がっしり・肥満
 const drawBody=k=>{const [lo,hi]=BODY[k];return Math.exp(rnd(Math.log(lo),Math.log(hi)));};
 const LIMIT = 3000, N = 32, STAGES = 3;   // 3ステージ×32人
+// ステージごとの制限時間（ミリ秒）：第3ステージだけ2秒
+const limitOf=sc=>sc===3?2000:LIMIT;
 const view = document.getElementById('view');
 
 let state = { scene:0, round:[], log:[], model:null };
@@ -192,10 +217,10 @@ function scene1Candidates(){
 }
 
 /* ---------- 回答時間 → 重み ---------- */
-function weightFor(t, times, idx){
+function weightFor(t, times, idx, lim=LIMIT){
   if(t==null) return 0;
-  if(t>LIMIT) return 0.2*(idx<3?0.7:1);        // 3秒を過ぎた判定は最も軽く
-  const base=clamp(1-t/LIMIT,0,1);              // 速いほど重い
+  if(t>lim) return 0.2*(idx<3?0.7:1);           // 制限時間を過ぎた判定は最も軽く
+  const base=clamp(1-t/lim,0,1);                // 速いほど重い（そのステージの制限時間に対する割合）
   const valid=times.filter(x=>x!=null).sort((x,y)=>x-y);
   const med=valid.length?valid[Math.floor(valid.length/2)]:1500;
   const rel=Math.sqrt(clamp(med/Math.max(t,150),0.6,1.6)); // 本人の平均より速いか
@@ -224,8 +249,8 @@ function train(rows){
 const logit=(beta,p)=>{const x=feats(p);let s=0;for(let i=0;i<NF;i++)s+=x[i]*beta[i];return s;};
 
 /* ---------- ③ 結果：全組み合わせから最高点 ---------- */
-// 隠しBMIは16.5〜42の間なら減点なし。外側だけ少しずつ減点して、現実離れした組み合わせを抑える
-const realism=b=>b<16.5?-Math.pow((16.5-b)/1.5,2):b>42?-Math.pow((b-42)/4,2):0;
+// 隠しBMIは15.5〜47の間なら減点なし（表示範囲の両端の少し内側まで）。外側だけ少しずつ減点して、現実離れした組み合わせを抑える
+const realism=b=>b<15.5?-Math.pow((15.5-b)/1.5,2):b>47?-Math.pow((b-47)/4,2):0;
 // 好き・嫌いと判定した人たちとの近さ（カーネル）を点数に足す。
 // 回帰だけだと、候補を見せていない範囲の端に結果が飛びやすいので、実際に好きと判定した人の近くを優先する
 const BW=0.18, KD=0.6;
@@ -240,7 +265,7 @@ function kernelScore(p,rows){
 function bestCombo(beta,rows){
   rows=rows||weightedRows();
   let best=null;
-  for(let h=R.h[0];h<=R.h[1];h++)for(let a=R.a[0];a<=R.a[1];a++)for(let b=15;b<=50;b+=0.5){
+  for(let h=R.h[0];h<=R.h[1];h++)for(let a=R.a[0];a<=R.a[1];a++)for(let b=R.b[0];b<=R.b[1];b+=0.5){
     const w=Math.round(b*(h/100)**2);const p={h,w,a,_bmi:w/(h/100)**2};
     const s=0.5*logit(beta,p)+realism(p._bmi)-HPRIOR*((h-heightMean(a))/5.8)**2;if(best&&s+3<best.s0)continue;   // 明らかに低い組み合わせは省く
     const t=s+kernelScore(p,rows);if(!best||t>best.s)best={...p,s:t,s0:s};}
@@ -250,7 +275,7 @@ function bestCombo(beta,rows){
 /* ---------- 項目ごとの形と重み（結果の組み合わせを基準に、他の項目を固定して見る） ---------- */
 const AX=[{k:'h',name:'身長',unit:'cm',r:R.h,low:'低いほど好き',high:'高いほど好き'},
           {k:'a',name:'年齢',unit:'歳',r:R.a,low:'低いほど好き',high:'高いほど好き'},
-          {k:'b',name:'体型',unit:'',r:R.b,low:'細いほど好き',high:'太いほど好き',ends:['BMI16','BMI45']}];
+          {k:'b',name:'体型',unit:'',r:R.b,low:'細いほど好き',high:'太いほど好き',ends:['BMI15','BMI50']}];
 function axisShape(beta,anchor){
   const out=AX.map(ax=>{
     const pts=[...Array(41)].map((_,j)=>{const zz=-1+j/20;const val=ax.k==='b'?Math.exp(Math.log(R.b[0])+(zz+1)/2*(Math.log(R.b[1])-Math.log(R.b[0]))):ax.r[0]+(zz+1)/2*(ax.r[1]-ax.r[0]);
@@ -287,7 +312,7 @@ function scene2Candidates(beta){
     pool.forEach(p=>{const x=pos(p);const d=Math.min(...dis.map(y=>Math.hypot(x[0]-y[0],x[1]-y[1],x[2]-y[2])));p._w=Math.pow(d,4)+1e-6;});
   }
   const lastStage=state.scene===STAGES;
-  const nE=lastStage?3:Math.round(N*0.16),nW=lastStage?1:Math.round(N*0.08);   // 探索枠：通常は端寄り5＋全範囲3、最終ステージは端寄り3＋全範囲1
+  const nE=lastStage?3:Math.round(N*0.16),nW=lastStage?(Math.random()<0.5?1:0):Math.round(N*0.08);   // 最終ステージの全範囲枠は50%の確率で1人。出ない場合はその分を好みに寄せた候補で埋める   // 探索枠：通常は端寄り5＋全範囲3、最終ステージは端寄り3＋全範囲1
   const used=usedKeys();
   const pick=[];const nExploit=N-nE-nW;
   // 抽選で選ばれても、既に出た数字なら弾いて引き直す
@@ -450,11 +475,11 @@ function intro(){
     </div>
     <div id="how" hidden>
       <div class="how-body" style="display:flex;flex-direction:column;gap:1.6em;border-top:1px solid var(--line);padding-top:14px">
-        <div class="how-sec"><p>【どんなゲーム？】</p><p>画面に表示された数字を「あり」か「なし」かで判定するゲームです。判定の傾向や消費時間から、あなたの好きな「魔法の数字」を予想します。</p></div>
+        <div class="how-sec"><p>【どんなゲーム？】</p><p>表示された数字を「あり」か「なし」で判定するゲームです。判定の傾向や消費時間から、あなたの好きな「魔法の数字」を予想します。</p></div>
         <div class="how-sec"><p>【基本操作】</p><p class="nj">左右にスワイプ<span style="white-space:nowrap">（キーボードの ← →でもOK）</span></p>
-          <p>「あり」の場合は右に、「なし」なら左にスワイプしてください。</p>
+          <p>「あり」の場合は右→、「なし」なら←左にスワイプしてください。</p>
           <div style="display:flex;justify-content:center">${guideHTML()}</div></div>
-        <div class="how-sec"><p>【制限時間】</p><p>「あり」「なし」を判定できる時間は、数字1種類につき最大3秒間です。3秒を過ぎると「判定なし」と見なされ、自動的に次の数字に進みます。</p></div>
+        <div class="how-sec"><p>【制限時間】</p><p>「あり」「なし」を判定できる時間は、第1・第2ステージでは3秒、最後の第3ステージでは2秒です。制限時間をオーバーすると「判定なし」となり、自動的に次の数字に進みます。</p></div>
       </div>
     </div>
   </section>`;
@@ -469,7 +494,7 @@ function startScene(n){
   state.scene=n;
   state.round=n===1?scene1Candidates():scene2Candidates(state.model);
   let c=3;
-  view.innerHTML=`<section class="panel same-h" style="align-items:center;text-align:center"><p class="muted">第${n}ステージ開始まで　あと</p><div class="count" id="cd">3</div></section>`;
+  view.innerHTML=`<section class="panel same-h" style="align-items:center;text-align:center"><div class="cd-label"><p class="muted">第${n}ステージ</p><p class="cd-limit${limitOf(n)<LIMIT?' short':''}"><span class="dash-u">制限時間&thinsp;<b>${limitOf(n)/1000}秒</b></span></p></div><div class="count" id="cd">3</div></section>`;
   sfxBeep(false);
   const t=setInterval(()=>{c--;if(c<=0){clearInterval(t);sfxBeep(true);runCards(0);}else{document.getElementById('cd').textContent=c;sfxBeep(false);}},700);
 }
@@ -485,10 +510,10 @@ function runCards(i){
     <article class="card" id="card">
       <div class="stamp l" id="sl">あり</div><div class="stamp n" id="sn">なし</div>
       <div class="magic">${p.h}<span class="sl"><svg viewBox="0 0 10 20" preserveAspectRatio="none" aria-hidden="true"><line x1="0" y1="20" x2="10" y2="0" stroke="currentColor" stroke-width="1" vector-effect="non-scaling-stroke"/></svg><i>/</i></span>${p.w}<span class="sl"><svg viewBox="0 0 10 20" preserveAspectRatio="none" aria-hidden="true"><line x1="0" y1="20" x2="10" y2="0" stroke="currentColor" stroke-width="1" vector-effect="non-scaling-stroke"/></svg><i>/</i></span>${p.a}</div>
-      <div class="timer"><i id="bar"></i></div>
+      <div class="timer" id="timer" style="width:${90*limitOf(state.scene)/LIMIT}%">${Array.from({length:limitOf(state.scene)/1000},()=>"<i><b></b></i>").join("")}</div>
     </article></div>`;
   const t0=performance.now();let done=false;
-  const bar=document.getElementById('bar'),card=document.getElementById('card');
+  const lim=limitOf(state.scene);const timerEl=document.getElementById('timer'),segs=[...timerEl.querySelectorAll('b')],card=document.getElementById('card');
   const reduce=window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches;
   const answer=(like,fromX=0,vx=0)=>{
     if(done)return;done=true;cancelAnimationFrame(tick);document.removeEventListener('keydown',keyHandler);
@@ -507,13 +532,15 @@ function runCards(i){
     }
     setTimeout(()=>runCards(i+1),200);
   };
-  const loop=()=>{const el=performance.now()-t0;const r=clamp(1-el/LIMIT,0,1);bar.style.transform=`scaleX(${r})`;
-    if(el>=LIMIT)return answer(null);   // 制限時間を超えたら判定は無効にして次へ
+  const loop=()=>{const el=performance.now()-t0;const rem=Math.max(0,(lim-el)/1000);   // 残り秒数
+    segs.forEach((b,j)=>{b.style.transform=`scaleX(${clamp(rem-j,0,1)})`;});            // 1秒ごとの区切り：右の区切りから減っていく
+    timerEl.classList.toggle('low',rem<1);                                                // 残り1秒を切ったら赤
+    if(el>=lim)return answer(null);   // 制限時間を超えたら判定は無効にして次へ
     tick=requestAnimationFrame(loop);};
   tick=requestAnimationFrame(loop);
   // 制限時間中は秒間4回「チッ」を鳴らす
   clearInterval(ticker);sfxTick();
-  ticker=setInterval(()=>{if(done||performance.now()-t0>=LIMIT){clearInterval(ticker);return;}sfxTick();},250);
+  ticker=setInterval(()=>{if(done||performance.now()-t0>=lim){clearInterval(ticker);return;}sfxTick();},250);
   keyHandler=e=>{if(e.key==='ArrowRight')answer(true);if(e.key==='ArrowLeft')answer(false);};
   document.addEventListener('keydown',keyHandler);
   // ---- スワイプ（改善案①〜④） ----
@@ -549,7 +576,7 @@ function runCards(i){
 function weightedRows(){
   const times=state.log.map(r=>r.t);
   const rows=state.log.map(r=>{const inScene=state.log.filter(x=>x.scene===r.scene).indexOf(r);
-    const w=weightFor(r.t,times,inScene)*(r.scene>=2?1.5:1);return {...r,wt:w};});
+    const w=weightFor(r.t,times,inScene,limitOf(r.scene))*(r.scene>=2?1.5:1);return {...r,wt:w};});
   // 改善案G：押し間違え対策。近くの判定と食い違う判定（周りが「なし」ばかりの「あり」など）ほど軽く扱う
   const pos=r=>r._z||(r._z=[z(r.p.h,R.h),z(r.p.a,R.a),zB(r.p._bmi)]);
   const BG=0.3;
@@ -596,7 +623,6 @@ function curveSVG(ax,mark){
   return `<svg class="curve" viewBox="0 0 ${W} ${H+17}" role="img" aria-label="${ax.name}の好みの曲線">
     <line x1="${pad}" x2="${W-pad}" y1="${H-1.5}" y2="${H-1.5}" stroke="var(--line)" stroke-width="1"/>
     <path d="${d}" fill="none" stroke="var(--ink)" stroke-width="2"/>
-    <circle cx="${X(mz)}" cy="${Y(mv)}" r="5" fill="var(--like)"/>
     <text x="${pad}" y="${H+13}" font-size="11" fill="var(--muted)" font-family="IBM Plex Mono,monospace">${lab(0)}</text>
     <text x="${W-pad}" y="${H+13}" font-size="11" fill="var(--muted)" text-anchor="end" font-family="IBM Plex Mono,monospace">${lab(1)}</text>
   </svg>`;
@@ -615,24 +641,28 @@ function showResult(rows){
   const top5=rows.filter(r=>r.like===true&&r.t!=null).sort((x,y)=>x.t-y.t).filter(r=>{const k=r.p.h+'/'+r.p.w+'/'+r.p.a;if(seen.has(k))return false;seen.add(k);return true;}).slice(0,5);   // 同じ数字が別ステージで出た場合は1回だけ
   // 表示上の回答時間（小数2桁）が直前の行と同じなら同順位とみなし、2個目以降の順位は空欄にする。
   // 次に時間が変わった行は、続きの番号（1位のあとは2位）にする
+  const CROWN='<svg class="crown" viewBox="0 0 24 24" aria-label="1位"><path d="M2.5 7.5l5 4.2L12 4l4.5 7.7 5-4.2L19.6 18H4.4z M4.4 19.6h15.2V21H4.4z" fill="currentColor"/></svg>';
   const sec=r=>(r.t/1000).toFixed(2);let rank=0;
-  const log=top5.map((r,i)=>{const tie=i>0&&sec(r)===sec(top5[i-1]);if(!tie)rank++;return `<tr${rank===1?' class="first"':''}><td>${tie?'':rank}</td><td class="num">${r.p.h}/${r.p.w}/${r.p.a}</td><td>${sec(r)}秒</td></tr>`;}).join('');
+  const log=top5.map((r,i)=>{const tie=i>0&&sec(r)===sec(top5[i-1]);if(!tie)rank++;return `<tr${rank===1?' class="first"':''}><td>${tie?'':rank}</td><td class="num"><span class="numwrap">${rank===1?CROWN:''}${r.p.h}/${r.p.w}/${r.p.a}</span></td><td>${sec(r)}秒</td></tr>`;}).join('');
   view.innerHTML=`<div style="display:flex;flex-direction:column;gap:16px">
   <section class="panel result-main">
     <p class="muted" style="text-align:center;width:100%"><span class="dash-u">あなたが好きな「魔法の数字」</span></p>
     <div class="magic" id="reels"><span class="reel" id="r0">${best.h}</span><span class="sl"><svg viewBox="0 0 10 20" preserveAspectRatio="none" aria-hidden="true"><line x1="0" y1="20" x2="10" y2="0" stroke="currentColor" stroke-width="1" vector-effect="non-scaling-stroke"/></svg><i>/</i></span><span class="reel" id="r1">${best.w}</span><span class="sl"><svg viewBox="0 0 10 20" preserveAspectRatio="none" aria-hidden="true"><line x1="0" y1="20" x2="10" y2="0" stroke="currentColor" stroke-width="1" vector-effect="non-scaling-stroke"/></svg><i>/</i></span><span class="reel" id="r2">${best.a}</span></div>
   <details class="detail" id="detail" hidden><summary>詳細</summary>
-    <h2 style="margin-top:16px;text-align:center">あなたの判定の傾向</h2>
-    ${order.map(s=>`<div class="axis">
-      <div class="axis-head"><span>${s.name}：${s.label}</span><span class="muted" style="font-family:var(--f-mono)">重要度：${Math.round(s.share*100)}%</span></div>
+    <h2 style="margin-top:16px;text-align:center">あなたの好みの傾向</h2>
+    ${order.map((s,k)=>`<div class="axis${k===0?' top':''}">
+      <div class="axis-head"><span>${s.name}：${s.label}</span><span class="muted share" style="font-family:var(--f-mono)">${k===0?CROWN:''}こだわり度：<span class="pct">${Math.round(s.share*100)}%</span></span></div>
       ${curveSVG(s,val[s.k])}
     </div>`).join('')}
-    <h2 style="margin-top:28px;text-align:center">「あり」判定即答ランキング</h2>
-    <div class="logwrap"><table class="top5"><thead><tr><th>順位</th><th>魔法の数字</th><th>判定時間</th></tr></thead><tbody>${log}</tbody></table></div>
+    <h2 style="margin-top:28px;text-align:center">「あり」即答ランキング</h2>
+    <div class="logwrap"><table class="top5"><thead><tr><th>順位</th><th>魔法の数字</th><th>所要時間</th></tr></thead><tbody>${log}</tbody></table></div>
   </details>
   </section>
-  <div class="row" id="afterRow" hidden style="justify-content:center"><a class="btn ghost" id="shareX" href="https://twitter.com/intent/tweet?text=${encodeURIComponent(`私が好きな「魔法の数字」は ${best.h}/${best.w}/${best.a} でした。`)}" target="_blank" rel="noopener">Xで共有</a><button class="btn" id="again">もう一度遊ぶ</button></div></div>`;
+  <div class="row" id="afterRow" hidden style="justify-content:center"><a class="btn ghost" id="shareX" href="https://twitter.com/intent/tweet?text=${encodeURIComponent(`私が好きな「魔法の数字」は ${best.h}/${best.w}/${best.a} でした。`)}" target="_blank" rel="noopener">結果をXに投稿</a><button class="btn" id="again">もう一度遊ぶ</button></div></div>`;
   document.getElementById('again').onclick=intro;
+  const det=document.getElementById('detail');
+  const eqShare=()=>{if(!det.open)return;const sp=[...det.querySelectorAll('.axis-head .share')];sp.forEach(e=>e.style.minWidth='');const w=Math.max(...sp.map(e=>e.getBoundingClientRect().width));sp.forEach(e=>e.style.minWidth=Math.ceil(w)+'px');};
+  det.addEventListener('toggle',eqShare);if(document.fonts)document.fonts.ready.then(eqShare);
   drumroll([best.h,best.w,best.a],()=>{document.getElementById('detail').hidden=false;document.getElementById('afterRow').hidden=false;});
 }
 
@@ -649,6 +679,23 @@ function wave(done){
   items.forEach((el,k)=>{el.style.animation=`wave ${DUR}ms cubic-bezier(.3,.7,.4,1) ${k*STEP}ms both`;setTimeout(()=>sfxWaveBlip(k),k*STEP);});
   setTimeout(done,(items.length-1)*STEP+DUR);
 }
+// 菱形（4つの角がとがった星）を数字のまわりに10個、少しずつずらしてまたたかせる
+function sparkle(){
+  const m=document.getElementById('reels');if(!m)return;
+  const STAR='<svg viewBox="0 0 20 20" aria-hidden="true"><path d="M10 0 C10.9 6.2 13.8 9.1 20 10 C13.8 10.9 10.9 13.8 10 20 C9.1 13.8 6.2 10.9 0 10 C6.2 9.1 9.1 6.2 10 0Z" fill="currentColor"/></svg>';
+  // 置き場所（数字の箱に対する割合）：上・下の帯と左右の端に散らす
+  // 数字の箱の中から、外へ向かって放射状に飛ばす。大きさは小〜大までばらつかせる
+  const W=m.offsetWidth,H=m.offsetHeight;
+  const sizes=[8,10,12,14,18,22,26,30,36,44];
+  const made=sizes.map((base,i)=>{const el=document.createElement('span');el.className='spark';el.innerHTML=STAR;
+    const ang=(i/sizes.length)*Math.PI*2+Math.random()*0.5;                    // 10方向にほぼ均等に散らす
+    const sx=50+Math.cos(ang)*28,sy=50+Math.sin(ang)*22;                          // 出発点：数字の中ほど（%）
+    const dist=70+Math.random()*60;const dx=Math.cos(ang)*dist,dy=Math.sin(ang)*dist*0.75;
+    const sz=Math.round(base*(0.85+Math.random()*0.3));
+    el.style.cssText=`left:${sx}%;top:${sy}%;--sz:${sz}px;--dx:${dx.toFixed(1)}px;--dy:${dy.toFixed(1)}px;--dur:${950+Math.random()*350}ms;--delay:${Math.round(Math.random()*140)}ms`;
+    m.appendChild(el);return el;});
+  setTimeout(()=>made.forEach(el=>el.remove()),2200);
+}
 function drumroll(vals,done){
   const els=[0,1,2].map(i=>document.getElementById('r'+i));
   const reduce=window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -663,7 +710,7 @@ function drumroll(vals,done){
       if(el>=stopAt[i]){stopped[i]=true;e.textContent=vals[i];e.classList.remove('spin');e.classList.add('stop');sfxStop();return;}
       spinning=true;const [lo,hi]=ranges[i];e.textContent=Math.floor(lo+Math.random()*(hi-lo+1));});
     if(spinning)sfxRoll();
-    if(stopped.every(Boolean)){clearInterval(iv);setTimeout(()=>wave(()=>{sfxWin();done();}),200);}
+    if(stopped.every(Boolean)){clearInterval(iv);setTimeout(()=>wave(()=>{sfxWin();sparkle();done();}),200);}
   },70);
 }
 
