@@ -116,7 +116,7 @@ html.playing,html.playing body{overflow-x:clip;touch-action:none;overscroll-beha
 .result-main{display:flex;flex-direction:column;gap:12px;align-items:flex-start;overflow:hidden}   /* 飛び散る星が枠の外にはみ出さないようにする */
 .axis{display:grid;grid-template-columns:1fr;gap:8px;padding-top:28px}
 .axis+.axis{margin-top:20px}
-.axis.top .axis-head span{color:var(--like);font-weight:700}   /* こだわり度がいちばん高い項目は、項目名・好み・こだわり度をまとめて赤の太字に */   /* 身長・年齢・体型の各まとまりの間を広げる */
+.axis.top .axis-head .share{color:var(--like)}   /* こだわり度がいちばん高い項目は、右側のこだわり度だけ赤に（左側の好みの表記は通常の文字） */
 .axis-head{display:flex;justify-content:space-between;align-items:baseline;gap:8px;flex-wrap:wrap}
 .chip{font-size:12px;padding:2px 10px;border-radius:999px;background:var(--bg);border:1px solid var(--line)}
 .chip.edge{border-color:var(--like);color:var(--like)}
@@ -221,13 +221,12 @@ function scene1Candidates(){
 /* ---------- 回答時間 → 重み ---------- */
 function weightFor(t, times, idx, lim=LIMIT){
   if(t==null) return 0;
-  if(t>lim) return 0.2*(idx<3?0.7:1);           // 制限時間を過ぎた判定は最も軽く
+  if(t>lim) return 0.2;           // 制限時間を過ぎた判定は最も軽く
   const base=clamp(1-t/lim,0,1);                // 速いほど重い（そのステージの制限時間に対する割合）
   const valid=times.filter(x=>x!=null).sort((x,y)=>x-y);
   const med=valid.length?valid[Math.floor(valid.length/2)]:1500;
   const rel=Math.sqrt(clamp(med/Math.max(t,150),0.6,1.6)); // 本人の平均より速いか
   let w=clamp(0.2+0.8*base*rel,0.2,1);
-  if(idx<3) w*=0.7;                             // 最初の3人は慣れていないので軽く
   return w;
 }
 
@@ -284,7 +283,7 @@ function bestCombo(beta,rows){
 /* ---------- 項目ごとの形と重み（結果の組み合わせを基準に、他の項目を固定して見る） ---------- */
 const AX=[{k:'h',name:'身長',unit:'cm',r:R.h,low:'低いほど好き',high:'高いほど好き'},
           {k:'a',name:'年齢',unit:'歳',r:R.a,low:'低いほど好き',high:'高いほど好き'},
-          {k:'b',name:'体型',unit:'',r:R.b,low:'細いほど好き',high:'太いほど好き',ends:['BMI15','BMI50']}];
+          {k:'b',name:'体型',unit:'',r:R.b,low:'細いほど好き',high:'太いほど好き'}];
 function axisShape(beta,anchor){
   const out=AX.map(ax=>{
     const pts=[...Array(41)].map((_,j)=>{const zz=-1+j/20;const val=ax.k==='b'?Math.exp(Math.log(R.b[0])+(zz+1)/2*(Math.log(R.b[1])-Math.log(R.b[0]))):ax.r[0]+(zz+1)/2*(ax.r[1]-ax.r[0]);
@@ -335,6 +334,11 @@ function displayShape(beta,anchor,rows){
     const atLo=ax.k==='b'?lo<=R.b[0]*1.03:lo<=ax.r[0]+step, atHi=ax.k==='b'?hi>=R.b[1]/1.03:hi>=ax.r[1]-step;
     let rangeLabel;
     if(atLo&&atHi)rangeLabel=null;
+    else if(ax.k==='b'){const sl=sizeOf(lo),sh=sizeOf(hi);   // 体型はサイズで表す（例：S〜Mサイズが好き）
+      if(sl===sh)rangeLabel=sl==='3XL'?'3XLサイズ以上が好き':`${sl}サイズが好き`;   // 3XLは上限ではないので「以上」を付ける
+      else if(atLo)rangeLabel=`${sh}サイズ以下が好き`;
+      else if(atHi)rangeLabel=`${sl}サイズ以上が好き`;
+      else rangeLabel=`${sl}〜${sh}サイズが好き`;}
     else if(r1(lo)===r1(hi))rangeLabel=`${pre}${r1(lo)}${unit}前後が好き`;
     else if(atLo)rangeLabel=`${pre}${r1(hi)}${unit}以下が好き`;
     else if(atHi)rangeLabel=`${pre}${r1(lo)}${unit}以上が好き`;
@@ -347,11 +351,14 @@ function displayShape(beta,anchor,rows){
   // 「あり」の割合の高低差が小さい項目は「こだわり弱め」（判定数が少ない人でも比べられるよう、3項目で最も高い割合に対する比で見る）
   const M=Math.max(...out.map(a=>a.mx));
   // 「こだわり弱め」は、山の高さが低い・範囲が端から端まで続く・判定が少なすぎる場合のみ（範囲の広さでは判定しない）
-  out.forEach(a=>{const weak=!a.rangeLabel||a.amp<DSP.weak*M;a.type=weak?'weak':'range';a.label=weak?'こだわり弱め':a.rangeLabel;});
+  out.forEach(a=>{const weak=!a.rangeLabel||a.amp<DSP.weak*M;a.type=weak?'weak':'range';a.label=(weak?'こだわり弱め':a.rangeLabel)+'かも';});   // 推定なので語尾に「かも」
   const sum=out.reduce((s,a)=>s+a.amp,0)||1;out.forEach(a=>a.share=a.amp/sum);
   return out;
 }
 
+// 体型（BMI）のサイズ表記：S〜3XL。BMIの数値は直感的にわかりにくいので、結果画面ではサイズで表す
+const SIZES=[{n:'S',lo:-Infinity,hi:18.5},{n:'M',lo:18.5,hi:25},{n:'L',lo:25,hi:30},{n:'XL',lo:30,hi:35},{n:'2XL',lo:35,hi:40},{n:'3XL',lo:40,hi:Infinity}];
+const sizeOf=b=>SIZES.find(x=>b<x.hi).n;
 /* ---------- ② 候補：好きになりそうな確率で抽選＋探索枠 ---------- */
 function scene2Candidates(beta){
   const anchor=bestCombo(beta);const shape=axisShape(beta,anchor);
@@ -491,15 +498,13 @@ document.addEventListener('click',e=>{const el=e.target.closest('button,a,summar
 const HAND_LEFT={"v":"4.8.0","meta":{"g":"LottieFiles AE ","a":"","k":"","d":"","tc":""},"fr":29.9700012207031,"ip":0,"op":42.0000017106951,"w":1080,"h":900,"nm":"Comp 1","ddd":0,"assets":[{"id":"image_0","w":45,"h":502,"u":"","p":"data:image/png;base64,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","e":1},{"id":"comp_0","layers":[{"ddd":0,"ind":1,"ty":4,"nm":"hand","sr":1,"ks":{"o":{"a":1,"k":[{"i":{"x":[0.386],"y":[1]},"o":{"x":[0.167],"y":[0]},"t":0,"s":[100]},{"i":{"x":[0],"y":[1]},"o":{"x":[0.333],"y":[0]},"t":30,"s":[100]},{"t":41.0000016699642,"s":[0]}],"ix":11},"r":{"a":0,"k":0,"ix":10},"p":{"a":1,"k":[{"i":{"x":0,"y":1},"o":{"x":0.54,"y":0},"t":0,"s":[858.89,912.463,0],"to":[-73.167,0,0],"ti":[73.167,0,0]},{"t":30.0000012219251,"s":[419.89,912.463,0]}],"ix":2},"a":{"a":0,"k":[110.83,82.597,0],"ix":1},"s":{"a":0,"k":[100,100,100],"ix":6}},"ao":0,"shapes":[{"ty":"gr","it":[{"ind":0,"ty":"sh","ix":1,"ks":{"a":0,"k":{"i":[[6.728,-6.728],[-3.727,-6.581],[0,0],[6.727,-6.728],[-3.741,-6.584],[0,0],[6.727,-6.728],[-3.737,-6.581],[0,0],[6.729,-6.729],[-6.728,-6.728],[0,0],[0,0],[3.726,-3.726],[-0.007,-6.397],[-2.191,-2.194],[-3.103,0],[0,0],[-8.596,8.596],[0,0],[22.143,22.142],[0,0]],"o":[[-5.603,5.603],[0,0],[-6.727,-6.728],[-5.607,5.606],[0,0],[-6.725,-6.725],[-5.607,5.606],[0,0],[-6.729,-6.729],[-6.725,6.725],[0,0],[0,0],[-5.174,0.741],[-4.587,4.588],[-0.005,3.097],[2.192,2.197],[0,0],[12.149,0],[0,0],[22.143,-22.143],[0,0],[-6.728,-6.728]],"v":[[22.029,-74.778],[19.216,-54.065],[14.478,-58.803],[-9.925,-58.803],[-12.721,-38.075],[-17.475,-42.829],[-41.873,-42.824],[-44.675,-22.102],[-81.376,-58.803],[-105.781,-58.803],[-105.776,-34.404],[-30.325,41.046],[-65.189,46.025],[-78.793,52.853],[-85.897,69.895],[-82.507,78.099],[-74.295,81.506],[39.486,81.506],[71.655,68.177],[90.363,49.469],[90.363,-30.847],[46.432,-74.778]],"c":true},"ix":2},"nm":"Path 1","mn":"ADBE Vector Shape - Group","hd":false},{"ty":"fl","c":{"a":0,"k":[1,0.998526958391,0.999226349475,1],"ix":4},"o":{"a":0,"k":100,"ix":5},"r":1,"bm":0,"nm":"Fill 1","mn":"ADBE Vector Graphic - Fill","hd":false},{"ty":"tr","p":{"a":0,"k":[112.756,81.756],"ix":2},"a":{"a":0,"k":[0,0],"ix":1},"s":{"a":0,"k":[100,100],"ix":3},"r":{"a":0,"k":0,"ix":6},"o":{"a":0,"k":100,"ix":7},"sk":{"a":0,"k":0,"ix":4},"sa":{"a":0,"k":0,"ix":5},"nm":"Transform"}],"nm":"Group 1","np":2,"cix":2,"bm":0,"ix":1,"mn":"ADBE Vector Group","hd":false}],"ip":0,"op":42.0000017106951,"st":0,"bm":0},{"ddd":0,"ind":2,"ty":2,"nm":"path","refId":"image_0","sr":1,"ks":{"o":{"a":0,"k":100,"ix":11},"r":{"a":0,"k":270,"ix":10},"p":{"a":0,"k":[540,862.894,0],"ix":2},"a":{"a":0,"k":[22.233,250.718,0],"ix":1},"s":{"a":0,"k":[100,100,100],"ix":6}},"ao":0,"ip":0,"op":42.0000017106951,"st":0,"bm":0}]}],"layers":[{"ddd":0,"ind":1,"ty":0,"nm":"hand","refId":"comp_0","sr":1,"ks":{"o":{"a":0,"k":100,"ix":11},"r":{"a":0,"k":0,"ix":10},"p":{"a":0,"k":[540,506,0],"ix":2},"a":{"a":0,"k":[540,960,0],"ix":1},"s":{"a":0,"k":[100,100,100],"ix":6}},"ao":0,"w":1080,"h":1920,"ip":0,"op":42.0000017106951,"st":0,"bm":0}],"markers":[]};
 // 右へ払う＝「あり」（DAuTIBTrhE.lottie）
 const HAND_RIGHT={"v":"4.8.0","meta":{"g":"LottieFiles AE ","a":"","k":"","d":"","tc":""},"fr":29.9700012207031,"ip":0,"op":42.0000017106951,"w":1080,"h":900,"nm":"Comp 1","ddd":0,"assets":[{"id":"image_0","w":45,"h":502,"u":"","p":"data:image/png;base64,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","e":1},{"id":"comp_0","layers":[{"ddd":0,"ind":1,"ty":4,"nm":"hand","sr":1,"ks":{"o":{"a":1,"k":[{"i":{"x":[0.386],"y":[1]},"o":{"x":[0.167],"y":[0]},"t":0,"s":[100]},{"i":{"x":[0],"y":[1]},"o":{"x":[0.333],"y":[0]},"t":30,"s":[100]},{"t":41.0000016699642,"s":[0]}],"ix":11},"r":{"a":0,"k":0,"ix":10},"p":{"a":1,"k":[{"i":{"x":0,"y":1},"o":{"x":0.468,"y":0},"t":0,"s":[419.89,912.463,0],"to":[73.167,0,0],"ti":[-73.167,0,0]},{"t":30.0000012219251,"s":[858.89,912.463,0]}],"ix":2},"a":{"a":0,"k":[110.83,82.597,0],"ix":1},"s":{"a":0,"k":[100,100,100],"ix":6}},"ao":0,"shapes":[{"ty":"gr","it":[{"ind":0,"ty":"sh","ix":1,"ks":{"a":0,"k":{"i":[[6.728,-6.728],[-3.727,-6.581],[0,0],[6.727,-6.728],[-3.741,-6.584],[0,0],[6.727,-6.728],[-3.737,-6.581],[0,0],[6.729,-6.729],[-6.728,-6.728],[0,0],[0,0],[3.726,-3.726],[-0.007,-6.397],[-2.191,-2.194],[-3.103,0],[0,0],[-8.596,8.596],[0,0],[22.143,22.142],[0,0]],"o":[[-5.603,5.603],[0,0],[-6.727,-6.728],[-5.607,5.606],[0,0],[-6.725,-6.725],[-5.607,5.606],[0,0],[-6.729,-6.729],[-6.725,6.725],[0,0],[0,0],[-5.174,0.741],[-4.587,4.588],[-0.005,3.097],[2.192,2.197],[0,0],[12.149,0],[0,0],[22.143,-22.143],[0,0],[-6.728,-6.728]],"v":[[22.029,-74.778],[19.216,-54.065],[14.478,-58.803],[-9.925,-58.803],[-12.721,-38.075],[-17.475,-42.829],[-41.873,-42.824],[-44.675,-22.102],[-81.376,-58.803],[-105.781,-58.803],[-105.776,-34.404],[-30.325,41.046],[-65.189,46.025],[-78.793,52.853],[-85.897,69.895],[-82.507,78.099],[-74.295,81.506],[39.486,81.506],[71.655,68.177],[90.363,49.469],[90.363,-30.847],[46.432,-74.778]],"c":true},"ix":2},"nm":"Path 1","mn":"ADBE Vector Shape - Group","hd":false},{"ty":"fl","c":{"a":0,"k":[1,0.998526958391,0.999226349475,1],"ix":4},"o":{"a":0,"k":100,"ix":5},"r":1,"bm":0,"nm":"Fill 1","mn":"ADBE Vector Graphic - Fill","hd":false},{"ty":"tr","p":{"a":0,"k":[112.756,81.756],"ix":2},"a":{"a":0,"k":[0,0],"ix":1},"s":{"a":0,"k":[100,100],"ix":3},"r":{"a":0,"k":0,"ix":6},"o":{"a":0,"k":100,"ix":7},"sk":{"a":0,"k":0,"ix":4},"sa":{"a":0,"k":0,"ix":5},"nm":"Transform"}],"nm":"Group 1","np":2,"cix":2,"bm":0,"ix":1,"mn":"ADBE Vector Group","hd":false}],"ip":0,"op":42.0000017106951,"st":0,"bm":0},{"ddd":0,"ind":2,"ty":2,"nm":"path","refId":"image_0","sr":1,"ks":{"o":{"a":0,"k":100,"ix":11},"r":{"a":0,"k":90,"ix":10},"p":{"a":0,"k":[540,862.894,0],"ix":2},"a":{"a":0,"k":[22.233,250.718,0],"ix":1},"s":{"a":0,"k":[100,100,100],"ix":6}},"ao":0,"ip":0,"op":42.0000017106951,"st":0,"bm":0}]}],"layers":[{"ddd":0,"ind":1,"ty":0,"nm":"hand","refId":"comp_0","sr":1,"ks":{"o":{"a":0,"k":100,"ix":11},"r":{"a":0,"k":0,"ix":10},"p":{"a":0,"k":[540,506,0],"ix":2},"a":{"a":0,"k":[540,960,0],"ix":1},"s":{"a":0,"k":[100,100,100],"ix":6}},"ao":0,"w":1080,"h":1920,"ip":0,"op":42.0000017106951,"st":0,"bm":0}],"markers":[]};
-const guideText=`<div style="display:flex;flex-direction:column;align-items:center;gap:6px;width:100%"><div class="guide" aria-label="操作案内"><div class="g n"><span class="arr">←</span>なし</div><div class="g l">あり<span class="arr">→</span></div></div>
-  <p class="guide-note">左右にスワイプ（キーボードは ← →）</p></div>`;
-const guideHTML=()=>`<div class="hand-anim" id="guide" role="img" aria-label="左右にスワイプして判定"><div id="guideL"></div><div id="guideR" hidden></div></div>`;
+const guideHTML=()=>`<div style="display:flex;justify-content:center"><div class="hand-anim" id="guide" role="img" aria-label="左右にスワイプして判定"><div id="guideL"></div><div id="guideR" hidden></div></div></div>`;
 let guideAnims=[];
 function clearGuide(){guideAnims.forEach(a=>{try{a.destroy();}catch(e){}});guideAnims=[];}
 // 画面にアニメーションを載せる。ライブラリが読み込めなかったときは文字の案内に差し替える
 function mountGuide(){
   clearGuide();const box=document.getElementById('guide');if(!box)return;
-  if(!window.lottie){box.outerHTML=guideText;return;}
+  if(!window.lottie){box.parentNode.remove();return;}   // 読み込めなかったときはアニメーションを出さない（文の説明だけ）
   const reduce=window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches;
   // 左払い（なし）→右払い（あり）を1回ずつ交互に再生する
   const els=[document.getElementById('guideL'),document.getElementById('guideR')];
@@ -535,11 +540,11 @@ function intro(){
     </div>
     <div id="how" hidden>
       <div class="how-body" style="display:flex;flex-direction:column;gap:1.6em;border-top:1px solid var(--line);padding-top:14px">
-        <div class="how-sec"><p>【どんなゲーム？】</p><p>表示された数字を「あり」か「なし」で判定するゲームです。判定の傾向や消費時間から、あなたの好きな「魔法の数字」を予想します。</p></div>
-        <div class="how-sec"><p>【基本操作】</p><p class="nj">左右にスワイプ<span style="white-space:nowrap">（キーボードの ← →でもOK）</span></p>
-          <p>「あり」の場合は右→、「なし」なら←左にスワイプしてください。</p>
-          <div style="display:flex;justify-content:center">${guideHTML()}</div></div>
-        <div class="how-sec"><p>【制限時間】</p><p>「あり」「なし」を判定できる時間は、第1・第2ステージでは3秒、最後の第3ステージでは2秒です。制限時間をオーバーすると「判定なし」となり、自動的に次の数字に進みます。</p></div>
+        <div class="how-sec"><p>【どんなゲーム？】</p><p>画面の数字を「あり」か「なし」で判定するゲームです。判定の傾向と、判定にかかった時間から、あなたが好きな「魔法の数字」を予想します。</p></div>
+        <div class="how-sec"><p>【基本操作】</p><p class="nj"><span style="white-space:nowrap">①「あり」なら→右にスワイプ</span><span style="white-space:nowrap">（→キーでも可）</span></p>
+          <p class="nj"><span style="white-space:nowrap">②「なし」なら←左にスワイプ</span><span style="white-space:nowrap">（←キーでも可）</span></p>
+          ${guideHTML()}</div>
+        <div class="how-sec"><p>【制限時間】</p><p>「あり」「なし」を判定できる時間は、第1・第2ステージでは3秒間、最後の第3ステージでは2秒間です。制限時間を過ぎてもゲームオーバーにはならず、自動的に次の数字へ進みます。</p></div>
       </div>
     </div>
   </section>`;
@@ -641,7 +646,7 @@ function runCards(i){
 function weightedRows(){
   const times=state.log.map(r=>r.t);
   const rows=state.log.map(r=>{const inScene=state.log.filter(x=>x.scene===r.scene).indexOf(r);
-    const w=weightFor(r.t,times,inScene,limitOf(r.scene))*(r.scene>=2?1.5:1);return {...r,wt:w};});
+    const w=weightFor(r.t,times,inScene,limitOf(r.scene))*(r.scene===3?1.5:r.scene===2?1.25:1);return {...r,wt:w};});   // 第2ステージは1.25倍、第3ステージは1.5倍
   // 改善案G：押し間違え対策。近くの判定と食い違う判定（周りが「なし」ばかりの「あり」など）ほど軽く扱う
   const pos=r=>r._z||(r._z=[z(r.p.h,R.h),z(r.p.a,R.a),zB(r.p._bmi)]);
   const BG=0.3;
@@ -676,7 +681,10 @@ function curveSVG(ax,mark){
   const W=300,H=64,pad=6;const vs=ax.pts.map(p=>p.v);const mn=Math.min(...vs),mx=Math.max(...vs),mid=(mn+mx)/2,half=((mx-mn)/2)||1;
   // 好みの強さをS字に変換して描く（大小の順序はそのまま、直線に見えないようにする）
   const S=v=>1/(1+Math.exp(-3.2*(v-mid)/half));const s0=S(mn),s1=S(mx),ss=(s1-s0)||1;
-  const lab=i=>ax.ends?ax.ends[i]:ax.r[i]+ax.unit;
+  // 目盛りの表記（単位なし）：身長は150・170・190、年齢は30・45・60、体型はサイズ（S〜3XL）を各区間の中央に
+  const TICKS={h:[[150,'150'],[170,'170'],[190,'190']],a:[[30,'30'],[45,'45'],[60,'60']],
+    b:SIZES.map(x=>[Math.sqrt(Math.max(x.lo,R.b[0])*Math.min(x.hi,R.b[1])),x.n])};
+  const tz=v=>ax.k==='b'?zB(v):z(v,ax.r);
   const X=zz=>pad+(zz+1)/2*(W-2*pad),Y=v=>H-pad-(S(v)-s0)/ss*(H-2*pad-10);
   const P=ax.pts.map(p=>[X(p.zz),Y(p.v)]);
   // 点を滑らかな曲線（3次ベジェ）でつなぐ
@@ -688,8 +696,7 @@ function curveSVG(ax,mark){
   return `<svg class="curve" viewBox="0 0 ${W} ${H+17}" role="img" aria-label="${ax.name}の好みの曲線">
     <line x1="${pad}" x2="${W-pad}" y1="${H-1.5}" y2="${H-1.5}" stroke="var(--line)" stroke-width="1"/>
     <path d="${d}" fill="none" stroke="var(--ink)" stroke-width="2"/>
-    <text x="${pad}" y="${H+13}" font-size="11" fill="var(--muted)" font-family="IBM Plex Mono,monospace">${lab(0)}</text>
-    <text x="${W-pad}" y="${H+13}" font-size="11" fill="var(--muted)" text-anchor="end" font-family="IBM Plex Mono,monospace">${lab(1)}</text>
+    ${TICKS[ax.k].map(([v,t])=>`<text x="${X(tz(v)).toFixed(1)}" y="${H+13}" font-size="11" fill="var(--muted)" text-anchor="middle" font-family="IBM Plex Mono,monospace">${t}</text>`).join('')}
   </svg>`;
 }
 
@@ -700,7 +707,8 @@ function showResult(rows){
   }
   const best=bestCombo(state.model,rows);const sh=displayShape(state.model,best,rows);
   const val={h:best.h,a:best.a,b:best._bmi};
-  const order=[...sh].sort((x,y)=>y.share-x.share);
+  const order=['h','b','a'].map(k=>sh.find(x=>x.k===k));   // 表示順は身長・体型・年齢で固定
+  const lead=[...sh].sort((x,y)=>y.share-x.share)[0];   // こだわり度がいちばん高い項目（王冠の判定に使う）
   // 「あり」を押すのが速かった順にベスト5（「なし」と判定した数字は出さない）
   const seen=new Set();
   const top5=rows.filter(r=>r.like===true&&r.t!=null).sort((x,y)=>x.t-y.t).filter(r=>{const k=r.p.h+'/'+r.p.w+'/'+r.p.a;if(seen.has(k))return false;seen.add(k);return true;}).slice(0,5);   // 同じ数字が別ステージで出た場合は1回だけ
@@ -713,18 +721,18 @@ function showResult(rows){
   <section class="panel result-main">
     <p class="muted" style="text-align:center;width:100%"><span class="dash-u">あなたが好きな「魔法の数字」</span></p>
     <div class="magic" id="reels"><span class="reel" id="r0">${best.h}</span><span class="sl"><svg viewBox="0 0 10 20" preserveAspectRatio="none" aria-hidden="true"><line x1="0" y1="20" x2="10" y2="0" stroke="currentColor" stroke-width="1" vector-effect="non-scaling-stroke"/></svg><i>/</i></span><span class="reel" id="r1">${best.w}</span><span class="sl"><svg viewBox="0 0 10 20" preserveAspectRatio="none" aria-hidden="true"><line x1="0" y1="20" x2="10" y2="0" stroke="currentColor" stroke-width="1" vector-effect="non-scaling-stroke"/></svg><i>/</i></span><span class="reel" id="r2">${best.a}</span></div>
-  <details class="detail" id="detail" hidden><summary>詳細</summary>
+  <details class="detail" id="detail" hidden><summary>魔法の裏側</summary>
     <h2 style="margin-top:16px;text-align:center">あなたの好みの傾向</h2>
     ${order.map((s,k)=>{const pct=x=>Math.round(x.share*100);   // 1位と表示上の%が同じ項目にも王冠を付ける（「こだわり弱め」には付けない）
-      const top=order[0].type!=='weak'&&s.type!=='weak'&&pct(s)===pct(order[0]);return `<div class="axis${top?' top':''}">
+      const top=lead.type!=='weak'&&s.type!=='weak'&&pct(s)===pct(lead);return `<div class="axis${top?' top':''}">
       <div class="axis-head"><span>${s.name}：${s.label}</span><span class="muted share" style="font-family:var(--f-mono)">${top?CROWN:''}こだわり度：<span class="pct">${Math.round(s.share*100)}%</span></span></div>
       ${curveSVG(s,val[s.k])}
     </div>`;}).join('')}
-    <h2 style="margin-top:28px;text-align:center">「あり」即答ランキング</h2>
+    <h2 style="margin-top:38px;text-align:center">「あり」即答ランキング</h2>
     <div class="logwrap"><table class="top5"><thead><tr><th>順位</th><th>魔法の数字</th><th>所要時間</th></tr></thead><tbody>${log}</tbody></table></div>
   </details>
   </section>
-  <div class="row" id="afterRow" hidden style="justify-content:center"><a class="btn ghost" id="shareX" href="https://twitter.com/intent/tweet?text=${encodeURIComponent(`私が好きな「魔法の数字」は ${best.h}/${best.w}/${best.a} でした。`)}" target="_blank" rel="noopener">結果をXに投稿</a><button class="btn" id="again">もう一度遊ぶ</button></div></div>`;
+  <div class="row" id="afterRow" hidden style="justify-content:center"><a class="btn ghost" id="shareX" href="https://twitter.com/intent/tweet?text=${encodeURIComponent(`私が好きな数字は ${best.h}/${best.w}/${best.a} でした。#魔法の数字`)}" target="_blank" rel="noopener">結果をXに投稿</a><button class="btn" id="again">もう一度遊ぶ</button></div></div>`;
   document.getElementById('again').onclick=intro;
   const det=document.getElementById('detail');
   const eqShare=()=>{if(!det.open||!det.isConnected)return;const sp=[...det.querySelectorAll('.axis-head .share')];sp.forEach(e=>e.style.minWidth='');const w=Math.max(...sp.map(e=>e.getBoundingClientRect().width));sp.forEach(e=>e.style.minWidth=Math.ceil(w)+'px');
