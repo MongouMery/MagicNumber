@@ -1,4 +1,4 @@
-<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#faf9f5;color:#141413}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
 <title>魔法の数字</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -134,6 +134,8 @@ table.top5 th,table.top5 td{text-align:center}
 table.top5 tr.first td{color:var(--like);font-weight:700}   /* 1位（同順位の1位も含む）は太字の赤 */
 .numwrap{position:relative}
 .axis-head .share{position:relative;text-align:left}
+.detail.stack .axis-head{display:grid;grid-template-columns:1fr;row-gap:2px}   /* 狭い画面：こだわり度を次の行の右端に */
+.detail.stack .axis-head .share{justify-self:end}
 .axis.top .axis-head .share{font-weight:400}
 .axis.top .axis-head .share .pct{font-weight:700}   /* 王冠付きのときは数値（◯%）だけ太字 */   /* 王冠付きのこだわり度は赤のみ。太字にせず、王冠なしの項目と同じ文字の形・位置にする */
 .axis-head .share .crown{position:absolute;right:100%;top:50%;transform:translateY(-55%);margin-right:calc(3px - 1.15em*2.5/24)}   /* 王冠は文字の左にはみ出させ、こだわり度の文字の位置は王冠なしの項目とそろえる */
@@ -262,12 +264,19 @@ function kernelScore(p,rows){
     const d2=((x[0]-y[0])**2+(x[1]-y[1])**2+(x[2]-y[2])**2)/(BW*BW);if(d2>16)continue;const k=Math.exp(-0.5*d2)*r.wt;if(r.like)L+=k;else D+=k;}
   return Math.log(L)-KD*Math.log(D);
 }
+// 魔法の数字は、実際に「あり」と判定した数字のどれかの近く（3項目合わせた距離がDMAX以内）から選ぶ。
+// 「あり」が少ないと回帰の曲線が判定の無い端で高くなりやすく、結果が「あり」と無関係な所へ飛ぶのを防ぐ
+const DMAX=0.35;
 function bestCombo(beta,rows){
   rows=rows||weightedRows();
+  const LK=rows.filter(r=>r.like===true&&r.wt>0).map(r=>[z(r.p.h,R.h),z(r.p.a,R.a),zB(r.p._bmi)]);
+  const nearLike=p=>{if(!LK.length)return true;const x0=z(p.h,R.h),x1=z(p.a,R.a),x2=zB(p._bmi);
+    for(const y of LK){if((x0-y[0])**2+(x1-y[1])**2+(x2-y[2])**2<=DMAX*DMAX)return true;}return false;};
   let best=null;
   for(let h=R.h[0];h<=R.h[1];h++)for(let a=R.a[0];a<=R.a[1];a++)for(let b=R.b[0];b<=R.b[1];b+=0.5){
     const w=Math.round(b*(h/100)**2);const p={h,w,a,_bmi:w/(h/100)**2};
     const s=0.5*logit(beta,p)+realism(p._bmi)-HPRIOR*((h-heightMean(a))/5.8)**2;if(best&&s+3<best.s0)continue;   // 明らかに低い組み合わせは省く
+    if(!nearLike(p))continue;
     const t=s+kernelScore(p,rows);if(!best||t>best.s)best={...p,s:t,s0:s};}
   return best;
 }
@@ -289,6 +298,57 @@ function axisShape(beta,anchor){
   });
   const sum=out.reduce((s,a)=>s+a.amp,0)||1;
   out.forEach(a=>a.share=a.amp/sum);
+  return out;
+}
+
+/* ---------- 結果画面の「好みの傾向」：実際の判定から、項目ごとに「あり」の割合を求めて範囲で表す ---------- */
+// ・魔法の数字と他の2項目が近い判定ほど重く見て（他の項目の影響を除く）、その項目の値ごとに「あり」の割合をなめらかに求める
+// ・判定が少ない値は、学習した曲線の値で補う（判定がほとんど無い値は、範囲やこだわり度の計算に使わない）
+// ・範囲は「あり」の割合が高い区間。実際に「あり」と判定した値の外には広げない
+const DSP={bwAxis:0.12,bwOther:0.5,prior:1,weak:0.4,frac:0.5,minSup:0.5};   // weak：「あり」の割合の高低差が、3項目で最も高い割合の4割未満なら「こだわり弱め」
+function displayShape(beta,anchor,rows){
+  const zs=p=>[z(p.h,R.h),z(p.a,R.a),zB(p._bmi)];
+  const za=zs(anchor);const IDX={h:0,a:1,b:2};
+  const data=rows.filter(r=>r.wt>0&&r.like!=null).map(r=>({x:zs(r.p),y:r.like?1:0,w:r.wt,p:r.p}));
+  const liked=data.filter(d=>d.y);
+  const out=AX.map(ax=>{const ai=IDX[ax.k];const key=ax.k==='b'?'_bmi':ax.k;
+    const pts=[...Array(41)].map((_,j)=>{const zz=-1+j/20;const val=ax.k==='b'?Math.exp(Math.log(R.b[0])+(zz+1)/2*(Math.log(R.b[1])-Math.log(R.b[0]))):ax.r[0]+(zz+1)/2*(ax.r[1]-ax.r[0]);
+      const p={h:anchor.h,a:anchor.a,_bmi:anchor._bmi};p[key]=val;
+      const pr=1/(1+Math.exp(-logit(beta,p)));
+      let num=DSP.prior*pr,sup=0,ny=0;
+      for(const d of data){const dz=d.x[ai]-zz;let o=0;for(let q=0;q<3;q++)if(q!==ai)o+=(d.x[q]-za[q])**2;
+        const w=d.w*Math.exp(-0.5*dz*dz/(DSP.bwAxis*DSP.bwAxis)-0.5*o/(DSP.bwOther*DSP.bwOther));sup+=w;ny+=w*d.y;}
+      return {zz,val,v:(num+ny)/(DSP.prior+sup),ok:sup>=DSP.minSup,sup};});
+    const ok=pts.filter(p=>p.ok);
+    const lv=liked.map(d=>d.p[key]);
+    if(ok.length<3)return {...ax,pts,amp:0,mx:0,rangeLabel:null};
+    const mx=Math.max(...ok.map(p=>p.v)),mn=Math.min(...ok.map(p=>p.v)),amp=mx-mn;
+    const jm=pts.findIndex(p=>p.ok&&p.v===mx);const th=mn+DSP.frac*amp;let a=jm,b=jm;
+    while(a>0&&pts[a-1].ok&&pts[a-1].v>=th)a--;while(b<40&&pts[b+1].ok&&pts[b+1].v>=th)b++;
+    // 範囲の両端は、実際に「あり」と判定した値にそろえる（一度も「あり」にしていない値を範囲の端に出さない）
+    const inR=lv.filter(v=>v>=pts[a].val&&v<=pts[b].val);
+    let lo,hi;
+    if(inR.length){lo=Math.min(...inR);hi=Math.max(...inR);}
+    else{const pk=pts[jm].val;lo=hi=lv.reduce((m,v)=>Math.abs(v-pk)<Math.abs(m-pk)?v:m,lv[0]);}
+    const r1=v=>Math.round(v);const unit=ax.k==='b'?'':ax.unit,pre=ax.k==='b'?'BMI':'';
+    const step=1.5;   // 目盛りの1刻み程度（年齢1.4歳・身長1.5cm）以内なら「端」とみなす
+    const atLo=ax.k==='b'?lo<=R.b[0]*1.03:lo<=ax.r[0]+step, atHi=ax.k==='b'?hi>=R.b[1]/1.03:hi>=ax.r[1]-step;
+    let rangeLabel;
+    if(atLo&&atHi)rangeLabel=null;
+    else if(r1(lo)===r1(hi))rangeLabel=`${pre}${r1(lo)}${unit}前後が好き`;
+    else if(atLo)rangeLabel=`${pre}${r1(hi)}${unit}以下が好き`;
+    else if(atHi)rangeLabel=`${pre}${r1(lo)}${unit}以上が好き`;
+    else rangeLabel=`${pre}${r1(lo)}〜${r1(hi)}${unit}が好き`;
+    // グラフ：判定が少ない値ほど「あり」の割合が最も低い高さに寄せて描く（判定の無い所に推測で山を作らない）
+    pts.forEach(p=>{p.v=mn+(p.v-mn)*clamp(p.sup/2,0,1);});
+    // グラフ：細かいジグザグを除くため、なめらかにならす（ガウスの重み・目盛り1.5刻み分。範囲やこだわり度の計算には使わない）
+    const raw=pts.map(p=>p.v);pts.forEach((p,i)=>{let s=0,w=0;raw.forEach((v,j)=>{const k=Math.exp(-0.5*((i-j)/1.5)**2);s+=k*v;w+=k;});p.v=s/w;});
+    return {...ax,pts,amp,mx,lo,hi,rangeLabel};});
+  // 「あり」の割合の高低差が小さい項目は「こだわり弱め」（判定数が少ない人でも比べられるよう、3項目で最も高い割合に対する比で見る）
+  const M=Math.max(...out.map(a=>a.mx));
+  // 「こだわり弱め」は、山の高さが低い・範囲が端から端まで続く・判定が少なすぎる場合のみ（範囲の広さでは判定しない）
+  out.forEach(a=>{const weak=!a.rangeLabel||a.amp<DSP.weak*M;a.type=weak?'weak':'range';a.label=weak?'こだわり弱め':a.rangeLabel;});
+  const sum=out.reduce((s,a)=>s+a.amp,0)||1;out.forEach(a=>a.share=a.amp/sum);
   return out;
 }
 
@@ -499,7 +559,7 @@ function startScene(n){
   const t=setInterval(()=>{c--;if(c<=0){clearInterval(t);sfxBeep(true);runCards(0);}else{document.getElementById('cd').textContent=c;sfxBeep(false);}},700);
 }
 
-let tick=null,keyHandler=null,ticker=null,detachSwipe=()=>{};
+let tick=null,keyHandler=null,ticker=null,detachSwipe=()=>{},resizeEq=null;
 function runCards(i){
   clearGuide();
   if(i>=N) return finishScene();
@@ -522,12 +582,17 @@ function runCards(i){
     const t=like==null?null:performance.now()-t0;
     state.log.push({scene:state.scene,idx:i,p,like,t});
     card.classList.remove('dragging');
+    // 判定した瞬間にスタンプを100%で出す（キーボード・素早い払いでも同じ見え方に）
+    if(like!=null){card.querySelector(like?'#sl':'#sn').style.opacity='1';card.querySelector(like?'#sn':'#sl').style.opacity='0';}
     if(like==null||reduce){card.classList.add(like==null?'go-skip':like?'go-like':'go-nope');}
     else{
       // 改善案⑤：離した位置と勢いのまま、画面外へ飛ばす
       const dir=like?1:-1,dist=window.innerWidth*0.9+Math.abs(fromX);
       const dur=Math.round(clamp(260-Math.abs(vx)*90,120,220));
-      card.style.transition=`transform ${dur}ms cubic-bezier(.2,.7,.3,1), opacity ${dur}ms ease-out`;
+      // 飛んでいく前半は不透明のまま（スタンプが見えるように）、後半で消す
+      // キーボードはその場から動き出すので、ゆっくり動き出して加速させる（スタンプが画面内に残る時間を確保）。指で動かした場合は勢いのまま
+      const ease=fromX===0?'cubic-bezier(.32,0,.67,0)':'cubic-bezier(.2,.7,.3,1)';
+      card.style.transition=`transform ${dur}ms ${ease}, opacity ${Math.round(dur*0.45)}ms ease-in ${Math.round(dur*0.55)}ms`;
       card.style.transform=`translateX(${dir*dist}px) rotate(${dir*18}deg)`;card.style.opacity='0';
     }
     setTimeout(()=>runCards(i+1),200);
@@ -633,7 +698,7 @@ function showResult(rows){
     view.innerHTML=`<section class="panel" style="align-items:center;text-align:center"><h2>測定失敗</h2><p style="text-wrap:balance">すべての数字に「なし」と回答したため、あなたの好きな数字がわかりませんでした。</p><div><button class="btn" id="again">もう一度遊ぶ</button></div></section>`;
     document.getElementById('again').onclick=intro;return;
   }
-  const best=bestCombo(state.model,rows);const sh=axisShape(state.model,best);
+  const best=bestCombo(state.model,rows);const sh=displayShape(state.model,best,rows);
   const val={h:best.h,a:best.a,b:best._bmi};
   const order=[...sh].sort((x,y)=>y.share-x.share);
   // 「あり」を押すのが速かった順にベスト5（「なし」と判定した数字は出さない）
@@ -650,10 +715,11 @@ function showResult(rows){
     <div class="magic" id="reels"><span class="reel" id="r0">${best.h}</span><span class="sl"><svg viewBox="0 0 10 20" preserveAspectRatio="none" aria-hidden="true"><line x1="0" y1="20" x2="10" y2="0" stroke="currentColor" stroke-width="1" vector-effect="non-scaling-stroke"/></svg><i>/</i></span><span class="reel" id="r1">${best.w}</span><span class="sl"><svg viewBox="0 0 10 20" preserveAspectRatio="none" aria-hidden="true"><line x1="0" y1="20" x2="10" y2="0" stroke="currentColor" stroke-width="1" vector-effect="non-scaling-stroke"/></svg><i>/</i></span><span class="reel" id="r2">${best.a}</span></div>
   <details class="detail" id="detail" hidden><summary>詳細</summary>
     <h2 style="margin-top:16px;text-align:center">あなたの好みの傾向</h2>
-    ${order.map((s,k)=>`<div class="axis${k===0?' top':''}">
-      <div class="axis-head"><span>${s.name}：${s.label}</span><span class="muted share" style="font-family:var(--f-mono)">${k===0?CROWN:''}こだわり度：<span class="pct">${Math.round(s.share*100)}%</span></span></div>
+    ${order.map((s,k)=>{const pct=x=>Math.round(x.share*100);   // 1位と表示上の%が同じ項目にも王冠を付ける（「こだわり弱め」には付けない）
+      const top=order[0].type!=='weak'&&s.type!=='weak'&&pct(s)===pct(order[0]);return `<div class="axis${top?' top':''}">
+      <div class="axis-head"><span>${s.name}：${s.label}</span><span class="muted share" style="font-family:var(--f-mono)">${top?CROWN:''}こだわり度：<span class="pct">${Math.round(s.share*100)}%</span></span></div>
       ${curveSVG(s,val[s.k])}
-    </div>`).join('')}
+    </div>`;}).join('')}
     <h2 style="margin-top:28px;text-align:center">「あり」即答ランキング</h2>
     <div class="logwrap"><table class="top5"><thead><tr><th>順位</th><th>魔法の数字</th><th>所要時間</th></tr></thead><tbody>${log}</tbody></table></div>
   </details>
@@ -661,8 +727,12 @@ function showResult(rows){
   <div class="row" id="afterRow" hidden style="justify-content:center"><a class="btn ghost" id="shareX" href="https://twitter.com/intent/tweet?text=${encodeURIComponent(`私が好きな「魔法の数字」は ${best.h}/${best.w}/${best.a} でした。`)}" target="_blank" rel="noopener">結果をXに投稿</a><button class="btn" id="again">もう一度遊ぶ</button></div></div>`;
   document.getElementById('again').onclick=intro;
   const det=document.getElementById('detail');
-  const eqShare=()=>{if(!det.open)return;const sp=[...det.querySelectorAll('.axis-head .share')];sp.forEach(e=>e.style.minWidth='');const w=Math.max(...sp.map(e=>e.getBoundingClientRect().width));sp.forEach(e=>e.style.minWidth=Math.ceil(w)+'px');};
-  det.addEventListener('toggle',eqShare);if(document.fonts)document.fonts.ready.then(eqShare);
+  const eqShare=()=>{if(!det.open||!det.isConnected)return;const sp=[...det.querySelectorAll('.axis-head .share')];sp.forEach(e=>e.style.minWidth='');const w=Math.max(...sp.map(e=>e.getBoundingClientRect().width));sp.forEach(e=>e.style.minWidth=Math.ceil(w)+'px');
+    // 好みの表記とこだわり度（王冠の分も含む）が1行に収まらない項目が1つでもあれば、3項目ともこだわり度を次の行の右端にそろえる
+    det.classList.remove('stack');
+    const need=[...det.querySelectorAll('.axis-head')].some(h=>{const fs=parseFloat(getComputedStyle(h).fontSize);const crown=h.querySelector('.crown')?fs*1.15+3:0;return h.children[0].getBoundingClientRect().width+8+crown+h.children[1].getBoundingClientRect().width>h.getBoundingClientRect().width;});
+    det.classList.toggle('stack',need);};
+  det.addEventListener('toggle',eqShare);if(resizeEq)window.removeEventListener('resize',resizeEq);resizeEq=eqShare;window.addEventListener('resize',eqShare);if(document.fonts)document.fonts.ready.then(eqShare);
   drumroll([best.h,best.w,best.a],()=>{document.getElementById('detail').hidden=false;document.getElementById('afterRow').hidden=false;});
 }
 
